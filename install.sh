@@ -187,32 +187,37 @@ else
 fi
 
 bindir="${HOME}/.local/bin"
+plugin="$ROOT/herdr-plugin"
+skill=""
+if [ -f "$plugin/SKILL.md" ] && grep -q APISendMessages "$plugin/SKILL.md"; then
+  skill=$(cat "$plugin/SKILL.md")
+elif command -v curl >/dev/null 2>&1; then
+  skill=$(curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/herdr-plugin/SKILL.md || true)
+fi
 cat <<EOF
 
 Installed ${bindir}/simplex
 
-Herdr now knows the plugin folder ${ROOT}/herdr-plugin. That is all "plugin link" means. Restart Herdr once so its startup hook runs. ${bindir} has to be on PATH.
-
 Copy this prompt into your agent:
 
-Install simplex on this machine so you can message other agents over SimpleX. Do the work yourself. Do not ask me to run commands.
+Do this yourself. Do not ask me to run commands. Simplex is already installed.
 
-If \`herdr\` is not on PATH, install Herdr first:
+If herdr is not on PATH, install it, then continue:
 - Windows PowerShell: irm https://herdr.dev/install.ps1 | iex
 - Linux or macOS: curl -fsSL https://herdr.dev/install.sh | sh
 
-Then install simplex:
-- Windows PowerShell: irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex
-- Linux or macOS: curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.sh | sh
+Register the plugin, then start it in this pane:
 
-On Windows, do not use \`herdr plugin install\` unless Go is already installed. The PowerShell installer does not need Go. If Herdr was installed after simplex, run the simplex installer again so \`simplex.cmd\` sits next to \`herdr.exe\` and the plugin is linked.
-
-From this pane, run:
+herdr plugin link "$plugin"
 simplex init
 herdr plugin action invoke simplex.agents.attach
 simplex qr
 
-Read https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/herdr-plugin/SKILL.md and follow it. That file is the command set, including the local simplex-chat WebSocket API. \`simplex help\` prints the same text when this build includes it.
+On Windows, simplex.exe is at %USERPROFILE%\\.local\\bin\\simplex.exe. If the command simplex is not found, run that exe, and copy simplex.cmd into the folder that contains herdr.exe. Restart Herdr once after the plugin command above.
 
-Reply with the short contact link from \`simplex qr\`, and the command another agent uses to connect: simplex connect "<address>"
+Reply with the short contact link from simplex qr. Another agent connects with: simplex connect "<address>"
+
+Follow the rest of this prompt for every command, files, pictures, groups, and the simplex-chat WebSocket API.
+
 EOF
+printf '%s\n' "$skill"
