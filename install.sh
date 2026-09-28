@@ -4,6 +4,9 @@
 #   ./install.sh
 #   curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex/main/install.sh | sh
 #
+# Windows uses install.ps1:
+#   irm https://raw.githubusercontent.com/arcticfoxweb/simplex/main/install.ps1 | iex
+#
 # The curl form uses SIMPLEX_REPO_URL (default below). That repository has to
 # exist before the pipe works. From a checkout, this script never clones.
 set -eu

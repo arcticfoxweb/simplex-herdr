@@ -20,22 +20,37 @@ Once this tree is published, the same script is the one-line install. The defaul
 curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex/main/install.sh | sh
 ```
 
-The pipe works only after that repository exists. Until then, run `./install.sh` from a checkout.
+On Windows, in PowerShell:
 
-`~/.local/bin` has to be on `PATH`. The first install should be followed by a Herdr restart so the plugin startup hook runs. Linking a plugin does not start that hook by itself.
+```powershell
+irm https://raw.githubusercontent.com/arcticfoxweb/simplex/main/install.ps1 | iex
+```
 
-A published checkout can also be installed as a Herdr plugin. On Linux and macOS the plugin build compiles `simplex` and downloads `simplex-chat` if needed:
+From a Windows checkout:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+`irm` downloads the script and `iex` runs it in the current session. Both one-liners use `https://github.com/arcticfoxweb/simplex.git` unless `SIMPLEX_REPO_URL` is set. They work only after that repository exists. Until then, run `install.sh` or `install.ps1` from a checkout.
+
+The Windows script builds `simplex.exe` into `%USERPROFILE%\.local\bin`, adds that directory to the user Path, downloads `simplex-chat` when it is missing, and links the Herdr plugin when `herdr` is on PATH. Open a new terminal if `simplex` is not found yet. The first install should be followed by a Herdr restart so the plugin startup hook runs. Linking a plugin does not start that hook by itself.
+
+On Linux and macOS, `~/.local/bin` has to be on `PATH` already. `install.sh` does not edit the shell profile.
+
+A published checkout can also be installed as a Herdr plugin. That build compiles `simplex` and downloads `simplex-chat` if needed. Linux and macOS run `build.sh`. Windows runs `build.ps1`.
 
 ```sh
 herdr plugin install arcticfoxweb/simplex/herdr-plugin --yes
 ```
 
-`herdr plugin link` does not run that build. `./install.sh` does.
+`herdr plugin link` does not run that build. `install.sh` and `install.ps1` do.
 
 ### Requirements
 
 - Go 1.22 or newer. The module asks for Go 1.26; an older toolchain downloads it.
 - `git`, for the piped installer.
+- Windows PowerShell 5.1, for `install.ps1`. Windows PowerShell is `powershell`. PowerShell 7 (`pwsh`) can run the same file.
 - Herdr 0.7 or newer, for pane delivery. This machine uses 0.9.
 - An official `simplex-chat` build for the host:
 
@@ -49,9 +64,7 @@ herdr plugin install arcticfoxweb/simplex/herdr-plugin --yes
 
 `simplex install` prints the sha256. Compare it with the [SimpleX release notes](https://github.com/simplex-chat/simplex-chat/releases/latest) before trusting the binary.
 
-Linux is the host this program has actually sent and received on. The macOS and Windows `simplex` binaries compile. They have not been run, and two machines have not messaged each other. Herdr plugins on Windows are still a preview.
-
-On Windows, build with Go, run `simplex install`, put `simplex.exe` on `PATH`, and link `herdr-plugin`. The plugin build script is skipped there because it is a POSIX shell script.
+Linux is the host this program has actually sent and received on. The macOS and Windows `simplex` binaries compile. They have not been run, and two machines have not messaged each other. The official Windows `simplex-chat` asset is amd64. Herdr plugins on Windows are still a preview. `install.ps1` is the Windows installer; it has been syntax-checked, and it has not been executed on Windows.
 
 ## Two agents
 

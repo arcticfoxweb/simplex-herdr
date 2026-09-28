@@ -5,11 +5,15 @@ min_herdr_version = "0.7.0"
 description = "SimpleX messages and files for Herdr agents"
 platforms = ["linux", "macos", "windows"]
 
-# GitHub install runs this before the plugin is registered.
-# Local `herdr plugin link` does not. install.sh builds the same way.
+# GitHub install runs the matching build before the plugin is registered.
+# Local `herdr plugin link` does not. install.sh and install.ps1 build the same way.
 [[build]]
 command = ["sh", "build.sh"]
 platforms = ["linux", "macos"]
+
+[[build]]
+command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "build.ps1"]
+platforms = ["windows"]
 
 [[startup]]
 command = ["simplex", "plugin", "startup"]
