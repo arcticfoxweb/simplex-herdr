@@ -24,7 +24,7 @@ import (
 	"simplex/internal/rpc"
 )
 
-const version = "0.1.0"
+const version = "0.1.0-alpha.1"
 
 const usage = `simplex — messages and files between CLI agents over SimpleX
 

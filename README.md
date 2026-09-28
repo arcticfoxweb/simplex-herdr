@@ -6,7 +6,7 @@ The same binary is the shell command, the worker for the Herdr plugin `simplex.a
 
 ## Install
 
-You need Go 1.22 or newer, `git`, and Herdr 0.7 or newer if messages should land in a pane. The Go module uses 1.26, so an older toolchain downloads it. This was developed against Herdr 0.9.
+The current release is the alpha [v0.1.0-alpha.1](https://github.com/arcticfoxweb/simplex-herdr/releases/tag/v0.1.0-alpha.1). Herdr 0.7 or newer is required if messages should land in a pane. This was developed against Herdr 0.9.
 
 Linux and macOS:
 
@@ -20,7 +20,9 @@ Windows, in PowerShell:
 irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex
 ```
 
-Both clone `https://github.com/arcticfoxweb/simplex-herdr.git` unless `SIMPLEX_REPO_URL` is set. From a checkout of this tree, skip the clone:
+The Windows one-liner downloads `simplex-windows-amd64.exe` from the latest release, checks it against `SHA256SUMS`, and does not need Go. Windows is amd64 only, because that is the official `simplex-chat` build. Set `SIMPLEX_FROM_SOURCE=1` to compile instead. Linux and macOS one-liners do the same for their release binary, and build from source if the release asset is missing.
+
+From a checkout of this tree, the install script compiles with Go:
 
 ```sh
 ./install.sh
@@ -30,9 +32,9 @@ Both clone `https://github.com/arcticfoxweb/simplex-herdr.git` unless `SIMPLEX_R
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-The installer builds `simplex` into `~/.local/bin` (`%USERPROFILE%\.local\bin\simplex.exe` on Windows), downloads the official `simplex-chat` binary when it is missing, and links the Herdr plugin when `herdr` is on `PATH`. On Windows it also adds that directory to the user Path. On Linux and macOS, `~/.local/bin` has to be on `PATH` already. Open a new terminal if `simplex` is not found. Restart Herdr once after the first install so the plugin startup hook runs. Linking a plugin does not start that hook by itself.
+A source build needs Go 1.22 or newer. The module uses Go 1.26, so an older toolchain downloads it. The installer puts `simplex` in `~/.local/bin` (`%USERPROFILE%\.local\bin\simplex.exe` on Windows), downloads the official `simplex-chat` binary when it is missing, and links the Herdr plugin when `herdr` is on `PATH`. On Windows it also adds that directory to the user Path. On Linux and macOS, `~/.local/bin` has to be on `PATH` already. Open a new terminal if `simplex` is not found. Restart Herdr once after the first install so the plugin startup hook runs. Linking a plugin does not start that hook by itself.
 
-`simplex install` prints a sha256. Compare it with the [SimpleX release notes](https://github.com/simplex-chat/simplex-chat/releases/latest) before trusting the downloaded binary.
+This release does not include `simplex-chat`. That program is SimpleX's own build. `simplex install` downloads it and prints the sha256. Compare that hash with the [SimpleX release notes](https://github.com/simplex-chat/simplex-chat/releases/latest) before trusting the binary.
 
 | OS | Arch | Release asset |
 | --- | --- | --- |
@@ -198,7 +200,7 @@ simplex version
 - No voice or video. Incoming calls are rejected.
 - No license file. Nothing in this tree grants one.
 - Linux is the only host where sending and receiving have been run. The macOS and Windows binaries compile. They have not been run, and two machines have not messaged each other.
-- The official Windows `simplex-chat` asset is amd64. Herdr plugins on Windows are a preview. `install.ps1` has been syntax-checked and run under PowerShell on Linux. It has not been executed on Windows.
+- The official Windows `simplex-chat` asset is amd64. Herdr plugins on Windows are a preview. `install.ps1` has been syntax-checked and its checkout path has been run under PowerShell on Linux. It has not been executed on Windows.
 
 ## Development
 

@@ -7,8 +7,9 @@
 # Windows uses install.ps1:
 #   irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex
 #
-# The curl form uses SIMPLEX_REPO_URL (default below). That repository has to
-# exist before the pipe works. From a checkout, this script never clones.
+# The curl form downloads the newest GitHub release binary, including an alpha
+# pre-release, and checks SHA256SUMS. Set SIMPLEX_FROM_SOURCE=1 to compile.
+# From a checkout, this script always compiles.
 set -eu
 
 REPO_URL="${SIMPLEX_REPO_URL:-https://github.com/arcticfoxweb/simplex-herdr.git}"
@@ -68,10 +69,99 @@ clone_source() {
   fi
 }
 
+release_asset() {
+  os=$(uname -s)
+  mach=$(uname -m)
+  case "$os-$mach" in
+    Linux-x86_64) printf '%s\n' simplex-linux-amd64 ;;
+    Linux-aarch64|Linux-arm64) printf '%s\n' simplex-linux-arm64 ;;
+    Darwin-arm64) printf '%s\n' simplex-darwin-arm64 ;;
+    Darwin-x86_64) printf '%s\n' simplex-darwin-amd64 ;;
+    *) return 1 ;;
+  esac
+}
+
+file_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+# Download the newest release binary, including a pre-release. GitHub's
+# /releases/latest URL skips pre-releases, so this reads the releases API.
+fetch_release_bin() {
+  asset=$(release_asset) || return 1
+  command -v curl >/dev/null 2>&1 || return 1
+  api=$(curl -fsSL -H "User-Agent: simplex-install" -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/arcticfoxweb/simplex-herdr/releases?per_page=10") || return 1
+  urls=$(printf '%s\n' "$api" | sed -n 's/.*"browser_download_url": "\([^"]*\)".*/\1/p' || true)
+  if [ -n "${SIMPLEX_VERSION:-}" ]; then
+    url=$(printf '%s\n' "$urls" | grep "/${SIMPLEX_VERSION}/${asset}$" | head -n 1 || true)
+    sums=$(printf '%s\n' "$urls" | grep "/${SIMPLEX_VERSION}/SHA256SUMS$" | head -n 1 || true)
+  else
+    url=$(printf '%s\n' "$urls" | grep "/${asset}$" | head -n 1 || true)
+    sums=$(printf '%s\n' "$urls" | grep '/SHA256SUMS$' | head -n 1 || true)
+  fi
+  if [ -z "$url" ] || [ -z "$sums" ]; then
+    return 1
+  fi
+  bindir="${HOME}/.local/bin"
+  mkdir -p "$bindir"
+  tmp=$(mktemp)
+  sumtmp=$(mktemp)
+  if ! curl -fsSL -H "User-Agent: simplex-install" -o "$tmp" "$url"; then
+    rm -f "$tmp" "$sumtmp"
+    return 1
+  fi
+  if ! curl -fsSL -H "User-Agent: simplex-install" -o "$sumtmp" "$sums"; then
+    rm -f "$tmp" "$sumtmp"
+    return 1
+  fi
+  want=$(awk -v name="$asset" '$NF == name || $NF == ("*" name) { print $1; exit }' "$sumtmp")
+  got=$(file_sha256 "$tmp")
+  if [ -z "$want" ] || [ "$want" != "$got" ]; then
+    rm -f "$tmp" "$sumtmp"
+    die "checksum mismatch for $asset"
+  fi
+  mv "$tmp" "$bindir/simplex"
+  chmod 755 "$bindir/simplex"
+  rm -f "$sumtmp"
+  printf 'installed %s from the GitHub release\n' "$bindir/simplex"
+}
+
+ensure_chat() {
+  bin="${HOME}/.local/bin/simplex"
+  if [ -n "${SIMPLEX_CHAT_BIN:-}" ] && [ -f "$SIMPLEX_CHAT_BIN" ]; then
+    printf 'using simplex-chat at %s\n' "$SIMPLEX_CHAT_BIN"
+    return 0
+  fi
+  share="${HOME}/.local/share/simplex/bin/simplex-chat"
+  if [ -x "$share" ] || [ -x "${share}.exe" ] || command -v simplex-chat >/dev/null 2>&1; then
+    printf 'simplex-chat already installed; skipping download\n'
+    return 0
+  fi
+  "$bin" install
+}
+
 ROOT=""
+from_tree=0
 if ROOT=$(source_root); then
+  from_tree=1
   printf 'building %s\n' "$ROOT"
-else
+fi
+
+got_bin=0
+if [ "$from_tree" -eq 0 ] && [ "${SIMPLEX_FROM_SOURCE:-}" != 1 ]; then
+  if fetch_release_bin; then
+    got_bin=1
+  else
+    printf 'no release binary; building from source\n' >&2
+  fi
+fi
+
+if [ -z "$ROOT" ]; then
   clone_source
   ROOT=$SRC_DIR
 fi
@@ -80,7 +170,11 @@ if [ ! -f "$ROOT/herdr-plugin/build.sh" ]; then
   die "no herdr-plugin/build.sh in $ROOT"
 fi
 
-sh "$ROOT/herdr-plugin/build.sh"
+if [ "$got_bin" -eq 0 ]; then
+  sh "$ROOT/herdr-plugin/build.sh"
+else
+  ensure_chat
+fi
 
 if [ "${SIMPLEX_SKIP_LINK:-}" = "1" ]; then
   printf 'skipping Herdr plugin link\n'

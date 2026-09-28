@@ -13,7 +13,7 @@ import (
 	"simplex/internal/rpc"
 )
 
-const version = "0.1.0"
+const version = "0.1.0-alpha.1"
 
 // Caller runs one daemon operation.
 type Caller func(rpc.Request) (rpc.Response, error)

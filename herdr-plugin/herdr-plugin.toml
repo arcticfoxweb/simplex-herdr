@@ -1,6 +1,6 @@
 id = "simplex.agents"
 name = "Simplex"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 min_herdr_version = "0.7.0"
 description = "SimpleX messages and files for Herdr agents"
 platforms = ["linux", "macos", "windows"]
