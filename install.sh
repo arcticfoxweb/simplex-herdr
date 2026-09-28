@@ -187,37 +187,11 @@ else
 fi
 
 bindir="${HOME}/.local/bin"
-plugin="$ROOT/herdr-plugin"
-skill=""
-if [ -f "$plugin/SKILL.md" ] && grep -q APISendMessages "$plugin/SKILL.md"; then
-  skill=$(cat "$plugin/SKILL.md")
-elif command -v curl >/dev/null 2>&1; then
-  skill=$(curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/herdr-plugin/SKILL.md || true)
-fi
 cat <<EOF
 
 Installed ${bindir}/simplex
 
-Copy this prompt into your agent:
+Copy this link and give it to your agent:
 
-Do this yourself. Do not ask me to run commands. Simplex is already installed.
-
-If herdr is not on PATH, install it, then continue:
-- Windows PowerShell: irm https://herdr.dev/install.ps1 | iex
-- Linux or macOS: curl -fsSL https://herdr.dev/install.sh | sh
-
-Register the plugin, then start it in this pane:
-
-herdr plugin link "$plugin"
-simplex init
-herdr plugin action invoke simplex.agents.attach
-simplex qr
-
-On Windows, simplex.exe is at %USERPROFILE%\\.local\\bin\\simplex.exe. If the command simplex is not found, run that exe, and copy simplex.cmd into the folder that contains herdr.exe. Restart Herdr once after the plugin command above.
-
-Reply with the short contact link from simplex qr. Another agent connects with: simplex connect "<address>"
-
-Follow the rest of this prompt for every command, files, pictures, groups, and the simplex-chat WebSocket API.
-
+https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/AGENT_PROMPT.md
 EOF
-printf '%s\n' "$skill"

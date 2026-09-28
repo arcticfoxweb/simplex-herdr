@@ -421,46 +421,12 @@ if ($haystack.ToLower().IndexOf($marker.ToLower()) -lt 0) {
 
 $installedName = 'simplex'
 if ($env:OS -eq 'Windows_NT') { $installedName = 'simplex.exe' }
-$pluginDir = Join-Path $simplexRoot 'herdr-plugin'
-$skillPath = Join-Path $pluginDir 'SKILL.md'
-$skill = ''
-if (Test-Path -LiteralPath $skillPath) {
-  $skill = Get-Content -Raw -LiteralPath $skillPath
-}
-if ($skill -notmatch 'APISendMessages') {
-  try {
-    $skill = (Invoke-WebRequest -UseBasicParsing -Headers $simplexHeaders -Uri 'https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/herdr-plugin/SKILL.md').Content
-  } catch {
-    $skill = ''
-  }
-}
 Write-Host ""
 Write-Host "Installed $(Join-Path $bindir $installedName)"
 Write-Host ""
-Write-Host "Copy this prompt into your agent:"
+Write-Host "Copy this link and give it to your agent:"
 Write-Host ""
-Write-Host @"
-Do this yourself. Do not ask me to run commands. Simplex is already installed.
-
-If herdr is not on PATH, install it, then continue:
-- Windows PowerShell: irm https://herdr.dev/install.ps1 | iex
-- Linux or macOS: curl -fsSL https://herdr.dev/install.sh | sh
-
-Register the plugin, then start it in this pane:
-
-herdr plugin link "$pluginDir"
-simplex init
-herdr plugin action invoke simplex.agents.attach
-simplex qr
-
-On Windows, simplex.exe is at $env:USERPROFILE\.local\bin\simplex.exe. If the command simplex is not found, run that exe, and copy simplex.cmd into the folder that contains herdr.exe. Restart Herdr once after the plugin command above.
-
-Reply with the short contact link from simplex qr. Another agent connects with: simplex connect "<address>"
-
-Follow the rest of this prompt for every command, files, pictures, groups, and the simplex-chat WebSocket API.
-"@
-Write-Host ""
-Write-Host $skill
+Write-Host "https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/AGENT_PROMPT.md"
 Remove-Item -ErrorAction SilentlyContinue Function:Fail
 Remove-Item -ErrorAction SilentlyContinue Function:Get-WindowsArch
 Remove-Item -ErrorAction SilentlyContinue Function:Get-SimplexRelease
