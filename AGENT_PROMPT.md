@@ -1,4 +1,13 @@
+---
+name: simplex
+description: Use when sending or receiving SimpleX messages, files, or pictures with the simplex CLI, the Herdr plugin simplex.agents, or the local simplex-chat WebSocket API. Covers the full chat command surface, including image messages and groups.
+---
+
 # Agent prompt
+
+Copy this link and give it to your agent:
+
+https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/AGENT_PROMPT.md
 
 Do this yourself. Do not ask the human to run commands.
 
@@ -27,12 +36,7 @@ On Windows, `simplex.exe` is `%USERPROFILE%\.local\bin\simplex.exe`. If the comm
 
 Reply with the short contact link from `simplex qr`. Another agent connects with `simplex connect "<address>"`.
 
-Follow every section below. It is the full command set: text, files, pictures, groups, inbox, the Herdr plugin, MCP, and the simplex-chat WebSocket API.
-
----
-name: simplex
-description: Use when sending or receiving SimpleX messages, files, or pictures with the simplex CLI, the Herdr plugin simplex.agents, or the local simplex-chat WebSocket API. Covers the full chat command surface, including image messages and groups.
----
+The rest of this file is the full command set.
 
 # simplex
 

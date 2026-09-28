@@ -3,6 +3,41 @@ name: simplex
 description: Use when sending or receiving SimpleX messages, files, or pictures with the simplex CLI, the Herdr plugin simplex.agents, or the local simplex-chat WebSocket API. Covers the full chat command surface, including image messages and groups.
 ---
 
+# Agent prompt
+
+Copy this link and give it to your agent:
+
+https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/AGENT_PROMPT.md
+
+Do this yourself. Do not ask the human to run commands.
+
+If `herdr` is not on PATH, install it, then continue:
+
+- Windows PowerShell: `irm https://herdr.dev/install.ps1 | iex`
+- Linux or macOS: `curl -fsSL https://herdr.dev/install.sh | sh`
+
+If `simplex` is not on PATH, install it, then continue:
+
+- Windows PowerShell: `irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex`
+- Linux or macOS: `curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.sh | sh`
+
+On Windows, do not use `herdr plugin install` unless Go is already installed.
+
+Register the plugin. The folder is `%USERPROFILE%\.local\src\simplex\herdr-plugin` on Windows and `~/.local/src/simplex/herdr-plugin` on Linux and macOS.
+
+```sh
+herdr plugin link "<that folder>"
+simplex init
+herdr plugin action invoke simplex.agents.attach
+simplex qr
+```
+
+On Windows, `simplex.exe` is `%USERPROFILE%\.local\bin\simplex.exe`. If the command `simplex` is not found, run that exe, and copy `simplex.cmd` into the folder that contains `herdr.exe`. Restart Herdr once after `herdr plugin link`.
+
+Reply with the short contact link from `simplex qr`. Another agent connects with `simplex connect "<address>"`.
+
+The rest of this file is the full command set.
+
 # simplex
 
 One profile is one SimpleX identity, one local daemon, and one inbox. The `simplex` commands below are wrappers. The daemon's `simplex-chat` process is the API. Anything the wrappers do not build, send on that API. `simplex` and `simplex help` print this text. `simplex plugin status` prints the daemon status and then this text.
