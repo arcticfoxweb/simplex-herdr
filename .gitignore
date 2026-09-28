@@ -1,0 +1,7 @@
+/simplex
+/simplex.exe
+/dist/
+*.db
+*.db-shm
+*.db-wal
+*.partial

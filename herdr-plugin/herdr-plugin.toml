@@ -1,0 +1,39 @@
+id = "simplex.agents"
+name = "Simplex"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "SimpleX messages and files for Herdr agents"
+platforms = ["linux", "macos", "windows"]
+
+# GitHub install runs this before the plugin is registered.
+# Local `herdr plugin link` does not. install.sh builds the same way.
+[[build]]
+command = ["sh", "build.sh"]
+platforms = ["linux", "macos"]
+
+[[startup]]
+command = ["simplex", "plugin", "startup"]
+
+[[actions]]
+id = "start"
+title = "Start Simplex for this profile"
+contexts = ["workspace"]
+command = ["simplex", "plugin", "start"]
+
+[[actions]]
+id = "attach"
+title = "Attach this pane to Simplex"
+contexts = ["workspace"]
+command = ["simplex", "plugin", "attach"]
+
+[[actions]]
+id = "status"
+title = "Show Simplex status"
+contexts = ["workspace"]
+command = ["simplex", "plugin", "status"]
+
+[[panes]]
+id = "send"
+title = "Simplex send"
+placement = "overlay"
+command = ["simplex", "plugin", "compose"]
