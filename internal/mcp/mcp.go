@@ -60,7 +60,7 @@ func tools() []tool {
 		},
 		{
 			Name:        "send_file",
-			Description: "Send a local file to a contact or group. Optional caption is the message text. The other side receives a local file path when the download finishes.",
+			Description: "Send a local file to a contact or group as a text message with a file attached. The SimpleX app shows a file row, not an inline picture. Optional caption is the message text. The other side receives a local file path when the download finishes.",
 			Schema: objSchema([]string{"to", "path"},
 				prop("to", "Contact or group name"),
 				prop("path", "Local file to send"),

@@ -85,6 +85,8 @@ herdr plugin pane open --plugin simplex.agents --entrypoint send \
 
 The send pane closes after a successful send. `SIMPLEX_TO` is a contact name or a group name. The shell command and the plugin call the same daemon operation.
 
+`simplex send-file` attaches a file to a text message. The SimpleX app shows that as a file row. It does not draw an inline picture. The full agent instructions are `simplex help` and [herdr-plugin/SKILL.md](herdr-plugin/SKILL.md). `simplex plugin status` prints them after the daemon status.
+
 When Bob's pane is idle, the daemon submits:
 
 ```text

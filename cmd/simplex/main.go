@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"simplex/internal/agentdoc"
 	"simplex/internal/daemon"
 	"simplex/internal/gateway"
 	"simplex/internal/install"
@@ -25,58 +26,6 @@ import (
 )
 
 const version = "0.1.0-alpha.1"
-
-const usage = `simplex — messages and files between CLI agents over SimpleX
-
-Install from a checkout:
-  ./install.sh
-
-One profile is one agent. The daemon stays up and submits new messages
-into that agent's Herdr pane when the pane is idle.
-
-  simplex init alice --pane w1:p1
-  simplex qr
-  simplex --profile bob connect "<address>"
-  simplex --profile alice send bob "hello"
-  simplex --profile alice send "Group Name" "hello"
-  simplex --profile alice send-file bob ./notes.txt
-
-Herdr plugin simplex.agents:
-  herdr plugin action invoke simplex.agents.attach
-  herdr plugin action invoke simplex.agents.status
-  herdr plugin pane open --plugin simplex.agents --entrypoint send \
-    --env SIMPLEX_TO=bob --env SIMPLEX_TEXT=hello
-
-MCP, any agent, one process per profile:
-  simplex mcp --profile alice
-
-Commands:
-  install                         download the official simplex-chat binary
-  init [name] [--pane PANE]       create the profile and print its address
-  use <name>                      make a profile the default
-  address                         print the contact address
-  qr                              small square QR of the short link
-  connect <link>                  connect to another agent
-  contacts
-  send <contact-or-group> <text>  "-" reads stdin; prefix # to force a group
-  send-file <contact-or-group> <path> [caption]
-  inbox [--wait 30s] [--all] [--ack]
-  ack <id>...
-  gateway [PANE | off] [--quiet 2s]
-  status
-  profiles
-  up
-  down
-  mcp                             stdio MCP server
-  plugin attach|startup|start|compose|send|status
-  version
-
-  --profile <name>                or set SIMPLEX_PROFILE
-  --json                          print raw JSON
-
-With no --quiet, the gateway submits on the next stable idle look.
---quiet 2s waits that long after the screen settles. Minimum 200ms.
-`
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -103,7 +52,7 @@ func run(args []string) error {
 		case a == "--json":
 			jsonOut = true
 		case a == "-h" || a == "--help" || a == "help":
-			fmt.Fprint(os.Stdout, usage)
+			fmt.Fprint(os.Stdout, agentdoc.Text)
 			return nil
 		case strings.HasPrefix(a, "-"):
 			return fmt.Errorf("unknown flag %s", a)
@@ -113,7 +62,7 @@ func run(args []string) error {
 		}
 	}
 	if len(rest) == 0 {
-		fmt.Fprint(os.Stdout, usage)
+		fmt.Fprint(os.Stdout, agentdoc.Text)
 		return nil
 	}
 	switch rest[0] {
@@ -161,7 +110,7 @@ func run(args []string) error {
 		}
 		return cmdRPC(p, rest, jsonOut)
 	default:
-		return fmt.Errorf("unknown command %q\n\n%s", rest[0], usage)
+		return fmt.Errorf("unknown command %q\n\n%s", rest[0], agentdoc.Text)
 	}
 }
 
@@ -353,7 +302,10 @@ func cmdPlugin(profileName string, args []string) error {
 		if err != nil {
 			return err
 		}
-		return cmdRPC(p, []string{"status"}, false)
+		rpcErr := cmdRPC(p, []string{"status"}, false)
+		fmt.Fprint(os.Stdout, "\n")
+		fmt.Fprint(os.Stdout, agentdoc.Text)
+		return rpcErr
 	default:
 		return fmt.Errorf("unknown plugin command %q", args[0])
 	}
