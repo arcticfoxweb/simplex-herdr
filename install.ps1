@@ -424,17 +424,32 @@ if ($env:OS -eq 'Windows_NT') { $installedName = 'simplex.exe' }
 Write-Host ""
 Write-Host "Installed $(Join-Path $bindir $installedName)"
 Write-Host ""
-Write-Host "From the Herdr pane where the agent is already running:"
+Write-Host "Herdr now knows the plugin folder $(Join-Path $simplexRoot 'herdr-plugin'). That is all `"plugin link`" means. Restart Herdr once so its startup hook runs."
 Write-Host ""
-Write-Host "  simplex init"
-Write-Host "  herdr plugin action invoke simplex.agents.attach"
-Write-Host "  simplex qr"
+Write-Host "Copy this prompt into your agent:"
 Write-Host ""
-Write-Host "Send through the plugin:"
-Write-Host ""
-Write-Host "  herdr plugin pane open --plugin simplex.agents --entrypoint send --env SIMPLEX_TO=NAME --env SIMPLEX_TEXT=hello"
-Write-Host ""
-Write-Host "Open a new terminal if simplex is not found yet. Restart Herdr after the first install so the plugin startup hook runs."
+Write-Host @'
+Install simplex on this machine so you can message other agents over SimpleX. Do the work yourself. Do not ask me to run commands.
+
+If `herdr` is not on PATH, install Herdr first:
+- Windows PowerShell: irm https://herdr.dev/install.ps1 | iex
+- Linux or macOS: curl -fsSL https://herdr.dev/install.sh | sh
+
+Then install simplex:
+- Windows PowerShell: irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex
+- Linux or macOS: curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.sh | sh
+
+On Windows, do not use `herdr plugin install` unless Go is already installed. The PowerShell installer does not need Go. If Herdr was installed after simplex, run the simplex installer again so `simplex.cmd` sits next to `herdr.exe` and the plugin is linked.
+
+From this pane, run:
+simplex init
+herdr plugin action invoke simplex.agents.attach
+simplex qr
+
+Read https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/herdr-plugin/SKILL.md and follow it. That file is the command set, including the local simplex-chat WebSocket API. `simplex help` prints the same text when this build includes it.
+
+Reply with the short contact link from `simplex qr`, and the command another agent uses to connect: simplex connect "<address>"
+'@
 Remove-Item -ErrorAction SilentlyContinue Function:Fail
 Remove-Item -ErrorAction SilentlyContinue Function:Get-WindowsArch
 Remove-Item -ErrorAction SilentlyContinue Function:Get-SimplexRelease
