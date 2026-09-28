@@ -92,7 +92,15 @@ function Install-ReleaseBinary($Release) {
   $destDir = Join-Path $simplexHome '.local\bin'
   New-Item -ItemType Directory -Force -Path $destDir | Out-Null
   $dest = Join-Path $destDir 'simplex.exe'
-  Move-Item -Force -LiteralPath $tmpExe -Destination $dest
+  # Move-Item -Force does not replace an existing file on Windows PowerShell.
+  if (Test-Path -LiteralPath $dest) {
+    try {
+      Remove-Item -LiteralPath $dest -Force
+    } catch {
+      Fail "could not replace $dest. Close any running simplex.exe and run the installer again."
+    }
+  }
+  Move-Item -LiteralPath $tmpExe -Destination $dest
   Write-Host "installed $dest from $($Release.tag_name)"
   return $true
 }
