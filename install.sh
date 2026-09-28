@@ -96,7 +96,8 @@ fetch_release_bin() {
   command -v curl >/dev/null 2>&1 || return 1
   api=$(curl -fsSL -H "User-Agent: simplex-install" -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/arcticfoxweb/simplex-herdr/releases?per_page=10") || return 1
-  urls=$(printf '%s\n' "$api" | sed -n 's/.*"browser_download_url": "\([^"]*\)".*/\1/p' || true)
+  # GitHub returns this list as one JSON line, so do not use a greedy sed match.
+  urls=$(printf '%s\n' "$api" | grep -o 'https://github.com/arcticfoxweb/simplex-herdr/releases/download/[^"]*' || true)
   if [ -n "${SIMPLEX_VERSION:-}" ]; then
     url=$(printf '%s\n' "$urls" | grep "/${SIMPLEX_VERSION}/${asset}$" | head -n 1 || true)
     sums=$(printf '%s\n' "$urls" | grep "/${SIMPLEX_VERSION}/SHA256SUMS$" | head -n 1 || true)
