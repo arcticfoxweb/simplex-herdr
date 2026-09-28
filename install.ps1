@@ -92,12 +92,27 @@ function Install-ReleaseBinary($Release) {
   $destDir = Join-Path $simplexHome '.local\bin'
   New-Item -ItemType Directory -Force -Path $destDir | Out-Null
   $dest = Join-Path $destDir 'simplex.exe'
-  # Move-Item -Force does not replace an existing file on Windows PowerShell.
   if (Test-Path -LiteralPath $dest) {
+    $have = (Get-FileHash -Algorithm SHA256 -LiteralPath $dest).Hash.ToLower()
+    if ($have -eq $got) {
+      Remove-Item -LiteralPath $tmpExe -Force -ErrorAction SilentlyContinue
+      Write-Host "already installed $dest"
+      return $true
+    }
+    # A running simplex.exe cannot be deleted. Renaming a running image works,
+    # and new commands then start the file just downloaded.
+    Get-Process simplex -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    $existing = Get-Item -LiteralPath $dest -Force
+    if ($existing.IsReadOnly) { $existing.IsReadOnly = $false }
+    $oldName = 'simplex.exe.old'
+    $old = Join-Path $destDir $oldName
+    Remove-Item -LiteralPath $old -Force -ErrorAction SilentlyContinue
     try {
-      Remove-Item -LiteralPath $dest -Force
+      Rename-Item -LiteralPath $dest -NewName $oldName -ErrorAction Stop
     } catch {
-      Fail "could not replace $dest. Close any running simplex.exe and run the installer again."
+      Write-Host "leaving the existing $dest in place ($($_.Exception.Message))"
+      Remove-Item -LiteralPath $tmpExe -Force -ErrorAction SilentlyContinue
+      return $true
     }
   }
   Move-Item -LiteralPath $tmpExe -Destination $dest
