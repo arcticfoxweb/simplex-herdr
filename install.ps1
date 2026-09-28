@@ -1,6 +1,6 @@
 # Install simplex from this checkout, or clone it when PowerShell invokes this with iex.
 #
-#   irm https://raw.githubusercontent.com/arcticfoxweb/simplex/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex
 #
 # From a checkout:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
@@ -15,7 +15,7 @@ if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
 
 $simplexRepoUrl = $env:SIMPLEX_REPO_URL
 if (-not $simplexRepoUrl) {
-  $simplexRepoUrl = 'https://github.com/arcticfoxweb/simplex.git'
+  $simplexRepoUrl = 'https://github.com/arcticfoxweb/simplex-herdr.git'
 }
 $simplexRef = $env:SIMPLEX_REF
 $simplexHome = $env:USERPROFILE

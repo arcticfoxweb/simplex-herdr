@@ -2,16 +2,16 @@
 # Install simplex from this checkout, or clone it when the script is piped to a shell.
 #
 #   ./install.sh
-#   curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.sh | sh
 #
 # Windows uses install.ps1:
-#   irm https://raw.githubusercontent.com/arcticfoxweb/simplex/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex
 #
 # The curl form uses SIMPLEX_REPO_URL (default below). That repository has to
 # exist before the pipe works. From a checkout, this script never clones.
 set -eu
 
-REPO_URL="${SIMPLEX_REPO_URL:-https://github.com/arcticfoxweb/simplex.git}"
+REPO_URL="${SIMPLEX_REPO_URL:-https://github.com/arcticfoxweb/simplex-herdr.git}"
 REF="${SIMPLEX_REF:-}"
 SRC_DIR="${SIMPLEX_SRC_DIR:-${HOME}/.local/src/simplex}"
 

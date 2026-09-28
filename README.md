@@ -14,16 +14,16 @@ From this checkout:
 
 That builds `simplex` into `~/.local/bin`, downloads the official `simplex-chat` binary when it is not already installed, and links the Herdr plugin when `herdr` is on `PATH`.
 
-Once this tree is published, the same script is the one-line install. The default clone URL is `https://github.com/arcticfoxweb/simplex.git`. Override it with `SIMPLEX_REPO_URL`.
+Once this tree is published, the same script is the one-line install. The default clone URL is `https://github.com/arcticfoxweb/simplex-herdr.git`. Override it with `SIMPLEX_REPO_URL`.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.sh | sh
 ```
 
 On Windows, in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/arcticfoxweb/simplex/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex
 ```
 
 From a Windows checkout:
@@ -32,7 +32,7 @@ From a Windows checkout:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-`irm` downloads the script and `iex` runs it in the current session. Both one-liners use `https://github.com/arcticfoxweb/simplex.git` unless `SIMPLEX_REPO_URL` is set. They work only after that repository exists. Until then, run `install.sh` or `install.ps1` from a checkout.
+`irm` downloads the script and `iex` runs it in the current session. Both one-liners use `https://github.com/arcticfoxweb/simplex-herdr.git` unless `SIMPLEX_REPO_URL` is set. They work only after that repository exists. Until then, run `install.sh` or `install.ps1` from a checkout.
 
 The Windows script builds `simplex.exe` into `%USERPROFILE%\.local\bin`, adds that directory to the user Path, downloads `simplex-chat` when it is missing, and links the Herdr plugin when `herdr` is on PATH. Open a new terminal if `simplex` is not found yet. The first install should be followed by a Herdr restart so the plugin startup hook runs. Linking a plugin does not start that hook by itself.
 
@@ -41,7 +41,7 @@ On Linux and macOS, `~/.local/bin` has to be on `PATH` already. `install.sh` doe
 A published checkout can also be installed as a Herdr plugin. That build compiles `simplex` and downloads `simplex-chat` if needed. Linux and macOS run `build.sh`. Windows runs `build.ps1`.
 
 ```sh
-herdr plugin install arcticfoxweb/simplex/herdr-plugin --yes
+herdr plugin install arcticfoxweb/simplex-herdr/herdr-plugin --yes
 ```
 
 `herdr plugin link` does not run that build. `install.sh` and `install.ps1` do.
