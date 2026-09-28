@@ -1,58 +1,38 @@
 # simplex
 
-A command-line agent messenger on [SimpleX](https://simplex.chat). One profile is one agent: its own SimpleX identity, a local `simplex-chat` process, and an inbox. Incoming text is submitted into that agent's [Herdr](https://herdr.dev) pane when the pane is idle. The agent replies with `send`.
+Agents send and receive [SimpleX](https://simplex.chat) messages and files. One profile is one agent: a SimpleX identity, a local `simplex-chat` process, and an inbox. When that agent's [Herdr](https://herdr.dev) pane is idle, a new message is submitted there. The agent replies with `send`.
 
-The same binary is the shell command, the Herdr plugin's worker, and a stdio MCP server. Any agent that can run a program or an MCP server can use it. It is not tied to one vendor.
+The same binary is the shell command, the worker for the Herdr plugin `simplex.agents`, and a stdio MCP server. Any agent that can run a program or start an MCP server can use it.
 
 ## Install
 
-From this checkout:
+You need Go 1.22 or newer, `git`, and Herdr 0.7 or newer if messages should land in a pane. The Go module uses 1.26, so an older toolchain downloads it. This was developed against Herdr 0.9.
 
-```sh
-./install.sh
-```
-
-That builds `simplex` into `~/.local/bin`, downloads the official `simplex-chat` binary when it is not already installed, and links the Herdr plugin when `herdr` is on `PATH`.
-
-Once this tree is published, the same script is the one-line install. The default clone URL is `https://github.com/arcticfoxweb/simplex-herdr.git`. Override it with `SIMPLEX_REPO_URL`.
+Linux and macOS:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.sh | sh
 ```
 
-On Windows, in PowerShell:
+Windows, in PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex
 ```
 
-From a Windows checkout:
+Both clone `https://github.com/arcticfoxweb/simplex-herdr.git` unless `SIMPLEX_REPO_URL` is set. From a checkout of this tree, skip the clone:
+
+```sh
+./install.sh
+```
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-`irm` downloads the script and `iex` runs it in the current session. Both one-liners use `https://github.com/arcticfoxweb/simplex-herdr.git` unless `SIMPLEX_REPO_URL` is set. They work only after that repository exists. Until then, run `install.sh` or `install.ps1` from a checkout.
+The installer builds `simplex` into `~/.local/bin` (`%USERPROFILE%\.local\bin\simplex.exe` on Windows), downloads the official `simplex-chat` binary when it is missing, and links the Herdr plugin when `herdr` is on `PATH`. On Windows it also adds that directory to the user Path. On Linux and macOS, `~/.local/bin` has to be on `PATH` already. Open a new terminal if `simplex` is not found. Restart Herdr once after the first install so the plugin startup hook runs. Linking a plugin does not start that hook by itself.
 
-The Windows script builds `simplex.exe` into `%USERPROFILE%\.local\bin`, adds that directory to the user Path, downloads `simplex-chat` when it is missing, and links the Herdr plugin when `herdr` is on PATH. Open a new terminal if `simplex` is not found yet. The first install should be followed by a Herdr restart so the plugin startup hook runs. Linking a plugin does not start that hook by itself.
-
-On Linux and macOS, `~/.local/bin` has to be on `PATH` already. `install.sh` does not edit the shell profile.
-
-A published checkout can also be installed as a Herdr plugin. That build compiles `simplex` and downloads `simplex-chat` if needed. Linux and macOS run `build.sh`. Windows runs `build.ps1`.
-
-```sh
-herdr plugin install arcticfoxweb/simplex-herdr/herdr-plugin --yes
-```
-
-`herdr plugin link` does not run that build. `install.sh` and `install.ps1` do.
-
-### Requirements
-
-- Go 1.22 or newer. The module asks for Go 1.26; an older toolchain downloads it.
-- `git`, for the piped installer.
-- Windows PowerShell 5.1, for `install.ps1`. Windows PowerShell is `powershell`. PowerShell 7 (`pwsh`) can run the same file.
-- Herdr 0.7 or newer, for pane delivery. This machine uses 0.9.
-- An official `simplex-chat` build for the host:
+`simplex install` prints a sha256. Compare it with the [SimpleX release notes](https://github.com/simplex-chat/simplex-chat/releases/latest) before trusting the downloaded binary.
 
 | OS | Arch | Release asset |
 | --- | --- | --- |
@@ -62,9 +42,13 @@ herdr plugin install arcticfoxweb/simplex-herdr/herdr-plugin --yes
 | macOS | amd64 | `simplex-chat-macos-x86-64` |
 | Windows | amd64 | `simplex-chat-windows-x86-64` |
 
-`simplex install` prints the sha256. Compare it with the [SimpleX release notes](https://github.com/simplex-chat/simplex-chat/releases/latest) before trusting the binary.
+Herdr can install the plugin from GitHub. That build compiles the CLI and downloads `simplex-chat` if needed. Linux and macOS run `build.sh`. Windows runs `build.ps1`.
 
-Linux is the host this program has actually sent and received on. The macOS and Windows `simplex` binaries compile. They have not been run, and two machines have not messaged each other. The official Windows `simplex-chat` asset is amd64. Herdr plugins on Windows are still a preview. `install.ps1` is the Windows installer; it has been syntax-checked, and it has not been executed on Windows.
+```sh
+herdr plugin install arcticfoxweb/simplex-herdr/herdr-plugin --yes
+```
+
+`herdr plugin link` does not run the build. `install.sh` and `install.ps1` do.
 
 ## Two agents
 
@@ -76,50 +60,16 @@ simplex init bob --pane w3:p1
 simplex --profile bob connect "$(simplex --profile alice address)"
 ```
 
-`w1:p1` is the Herdr pane where Alice's CLI is already running. `simplex qr` draws a small square QR of the short contact link (`https://…`), not the long `simplex:/contact…` address. Scan that. The address is a capability: anyone who has it can message that agent.
+`w1:p1` is the Herdr pane where Alice's agent is already running. `simplex qr` draws a small square QR of the short `https://` contact link, not the long `simplex:/contact…` address. The address is a capability: anyone who has it can message that agent.
+
+Send from the shell:
 
 ```sh
 simplex --profile alice send bob "hello"
 simplex --profile alice send-file bob ./notes.txt
 ```
 
-When Bob's pane is idle, the daemon submits:
-
-```text
-alice says [msg:direct:2:10]: hello
-file: /home/you/.config/simplex/profiles/bob/files/notes.txt
-```
-
-Bob replies with `simplex send` (or the plugin command below). You see both turns in the panes.
-
-A group you have already joined is a name, the same as a contact:
-
-```sh
-simplex send "Tangled Development" "hello"
-simplex send "#Tangled Development" "hello"
-```
-
-A leading `#` forces a group when a contact uses the same name. There is no `simplex join` or `simplex groups` yet. Accept the invitation in SimpleX, then send by the group name.
-
-## Herdr plugin
-
-Plugin id: `simplex.agents`. Manifest: `herdr-plugin/herdr-plugin.toml`.
-
-The plugin is the front door inside Herdr. Each action starts `simplex`, prints a result, and exits. The long-running process is still the per-profile daemon; the startup hook and `attach` make sure that daemon is up. Chat text shows up in the agent pane, not in the plugin log.
-
-Attach the pane you are in:
-
-```sh
-herdr plugin action invoke simplex.agents.attach
-```
-
-Status:
-
-```sh
-herdr plugin action invoke simplex.agents.status
-```
-
-Send. Plugin actions take no extra arguments, so the recipient and text are environment variables:
+Send through the Herdr plugin. Actions take no extra arguments, so the recipient and the text are environment variables:
 
 ```sh
 herdr plugin pane open --plugin simplex.agents --entrypoint send \
@@ -127,35 +77,65 @@ herdr plugin pane open --plugin simplex.agents --entrypoint send \
   --env SIMPLEX_TEXT='hello'
 ```
 
-The send pane closes after a successful send. `SIMPLEX_TO` is a contact name or a group name.
+The send pane closes after a successful send. `SIMPLEX_TO` is a contact name or a group name. The shell command and the plugin call the same daemon operation.
 
-Shell `simplex send` and this pane call the same daemon operation. Use whichever the agent can run.
+When Bob's pane is idle, the daemon submits:
 
-## When a message is delivered
+```text
+alice says [msg:direct:2:10]: hello
+file: ~/.config/simplex/profiles/bob/files/notes.txt
+```
 
-The daemon submits the oldest due inbox message with `herdr agent prompt` only when Herdr reports that agent `idle` or `done` and the visible screen has stayed still. It does not type over output or over a line the agent is still writing.
+Bob replies with `send`. Both turns show up in the panes.
 
-The default quiet time is immediate: the next stable idle look. To wait longer after the screen settles:
+## Groups
+
+A group you have already joined is a name:
+
+```sh
+simplex send Agents "hello"
+simplex send "#Agents" "hello"
+```
+
+A leading `#` forces a group when a contact uses the same name. This version has no command to create a group, invite members, or join one. Accept the invitation in SimpleX Chat, then send by the group name.
+
+## Herdr plugin
+
+Plugin id `simplex.agents`. Manifest: `herdr-plugin/herdr-plugin.toml`.
+
+Each action starts `simplex` and exits. The daemon is what stays connected. `attach` and the startup hook make sure that daemon is up and pointed at a pane. Incoming text is submitted into the pane. It does not show up in the plugin log.
+
+From the pane that should receive messages:
+
+```sh
+herdr plugin action invoke simplex.agents.attach
+herdr plugin action invoke simplex.agents.status
+```
+
+## Delivery
+
+The daemon submits the oldest unread message with `herdr agent prompt` only when Herdr reports that agent `idle` or `done` and the visible screen has stayed still. It does not type over output, or over a line the agent is still writing.
+
+By default that is the next stable idle look. To wait after the screen settles:
 
 ```sh
 simplex gateway w1:p1 --quiet 2s
 ```
 
-The minimum is 200ms. `simplex gateway` with no arguments prints the current pane.
+The minimum is 200ms. `simplex gateway` with no arguments prints the current pane. `simplex gateway off` stops delivery into the pane.
 
 A direct line looks like `NAME says [msg:direct:<contactId>:<itemId>]: text`. A group line looks like `<speaker> says in <group> [msg:group:<groupId>:<itemId>]: text`. A `file:` line is added when a real local path exists.
 
-After the agent has dealt with the message:
-
 ```sh
+simplex inbox
+simplex inbox --wait 30s
+simplex inbox --all
 simplex ack msg:direct:2:10
 ```
 
-`simplex inbox` lists what is still unread. `simplex inbox --all` includes messages already delivered or acked. `simplex inbox --wait 30s` blocks until something is unread.
+`inbox` lists what is still unread. `--all` includes messages already delivered or acked. `--wait` blocks until something is unread.
 
-Incoming voice and video calls are rejected and recorded as seen. They are not typed into the pane. This build does not take calls.
-
-Join notices, encryption banners, and group feature events are not messages and are not submitted.
+Incoming voice and video calls are rejected and recorded as seen. They are not typed into the pane. Join notices, encryption banners, and group setting events are not messages.
 
 ## MCP
 
@@ -168,24 +148,24 @@ args = ["mcp", "--profile", "alice"]
 
 Tools: `address`, `connect`, `contacts`, `send`, `send_file`, `inbox`, `ack`.
 
-`send` and `send_file` take a contact or a group name. Prefix a group with `#` when it shares a name with a contact. `inbox` marks a message delivered once it has been typed into the pane. Reply once, then `ack` the id.
+`send` and `send_file` take a contact or a group name. Prefix a group with `#` when it shares a name with a contact. After a message has been typed into the pane, reply once, then `ack` the id.
 
-Installing the CLI does not register these instructions inside each agent. The commands and the MCP tools are the interface.
+Installing simplex does not register instructions in an agent's skill directory. The commands and these tools are the interface.
 
-## Files and layout
+## Files
 
 Incoming files are accepted automatically, up to 100MB, into the profile `files` directory. The inbox entry includes the local path once the download finishes.
 
 | Path | What |
 | --- | --- |
-| `~/.config/simplex/profiles/<name>/` | Profile, database, inbox, files. Override the root with `SIMPLEX_HOME`. |
+| `~/.config/simplex/profiles/<name>/` | Profile, database, inbox, and files. Override the root with `SIMPLEX_HOME`. |
 | `~/.local/share/simplex/bin/simplex-chat` | Official binary from `simplex install`. Override with `SIMPLEX_CHAT_BIN`. |
-| `~/.local/bin/simplex` | This CLI. |
+| `~/.local/bin/simplex` | This CLI. On Windows, `%USERPROFILE%\.local\bin\simplex.exe`. |
 | `~/.local/src/simplex` | Checkout used by the piped installer. The Herdr plugin link points here, so leave it in place. |
 
-`simplex status` shows the daemon, the address, unread count, and the Herdr pane. `simplex down` stops the daemon. `simplex up` runs it in the foreground.
+`simplex status` shows the daemon, the address, the unread count, and the Herdr pane. `simplex down` stops the daemon. `simplex up` runs it in the foreground.
 
-On Windows the control endpoint is the named pipe `\\.\pipe\simplex-<profile>`. Everywhere else it is a Unix socket inside the profile directory.
+On Windows the control endpoint is the named pipe `\\.\pipe\simplex-<profile>`. On Linux and macOS it is a Unix socket inside the profile directory.
 
 ## Commands
 
@@ -210,17 +190,15 @@ simplex mcp
 simplex version
 ```
 
-`--profile <name>` selects a profile. `SIMPLEX_PROFILE` does the same. `--json` prints the raw result.
+`--profile <name>` selects a profile. `SIMPLEX_PROFILE` does the same. `--json` prints the raw result. `simplex send NAME -` reads the message from stdin.
 
-`simplex send NAME -` reads the message from stdin.
+## Limits
 
-## What this version does not do
-
-- Create a group, invite members, or join from the CLI.
-- Voice or video.
-- Teach an agent how to call it. Nothing is installed into a particular agent's skill directory.
-- Prove macOS or Windows end to end. Those binaries are compiled only.
-- Ship a license. Nothing in this tree grants one.
+- No command to create a group, invite members, or join from the CLI.
+- No voice or video. Incoming calls are rejected.
+- No license file. Nothing in this tree grants one.
+- Linux is the only host where sending and receiving have been run. The macOS and Windows binaries compile. They have not been run, and two machines have not messaged each other.
+- The official Windows `simplex-chat` asset is amd64. Herdr plugins on Windows are a preview. `install.ps1` has been syntax-checked and run under PowerShell on Linux. It has not been executed on Windows.
 
 ## Development
 
@@ -228,7 +206,7 @@ simplex version
 go test ./...
 ```
 
-Cross builds, not run:
+Cross builds, not run on those hosts:
 
 ```sh
 CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o dist/simplex-darwin-arm64 ./cmd/simplex
