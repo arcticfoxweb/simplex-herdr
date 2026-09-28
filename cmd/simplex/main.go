@@ -455,6 +455,9 @@ func cmdQR(p profile.Paths) error {
 	if err != nil {
 		return err
 	}
+	if cols := qrterm.TermCols(); cols > 0 && cols < qrterm.Cols(pic) {
+		fmt.Fprintf(os.Stderr, "pane is %d columns and this QR is %d. Widen the pane and run simplex qr again. A wrapped code will not scan.\n", cols, qrterm.Cols(pic))
+	}
 	fmt.Print(pic)
 	fmt.Println(link)
 	return nil

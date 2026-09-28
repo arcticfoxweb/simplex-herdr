@@ -6,15 +6,13 @@ The same binary is the shell command, the worker for the Herdr plugin `simplex.a
 
 ## Install
 
-Give this link to the agent that should be on SimpleX. The file tells the agent to install Herdr if it is missing, install simplex, register the plugin, and print the contact link. You do not run the installer.
+Install simplex, then give this link to the agent in the Herdr pane:
 
 https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/AGENT_PROMPT.md
 
-When an install finishes, it prints that same link.
+The installer prints that link when it finishes. The file tells the agent that the plugin is `simplex.agents`, where that directory is, and to run `simplex init`, attach the pane, and print the QR with `simplex qr`. The QR is drawn by the simplex binary. The file does not ask the agent to install Herdr or simplex again.
 
 The current release is the alpha [v0.1.0-alpha.1](https://github.com/arcticfoxweb/simplex-herdr/releases/tag/v0.1.0-alpha.1). Herdr 0.7 or newer is required if messages should land in a pane. This was developed against Herdr 0.9.
-
-The commands inside that prompt are:
 
 Linux and macOS:
 

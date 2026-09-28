@@ -1,11 +1,28 @@
 ---
 name: simplex
-description: Execute immediately when this file is opened. Simplex and the Herdr plugin are already installed. Run simplex init, attach this pane, print the QR, then use the command and WebSocket API in this file. Do not reinstall. Do not ask for permission.
+description: SimpleX for this Herdr pane. The simplex.agents plugin is already installed under ~/.local/src/simplex/herdr-plugin. Initialize the profile, attach this pane, and print the contact QR with simplex qr.
 ---
 
-# Execute now
+# Set up this pane
 
-You are the agent. The human already installed simplex and gave you this file. Run the steps in this section now. Do not summarize the file. Do not ask for permission. Do not wait. Do not install Herdr or simplex again. Do not inspect the current directory for source.
+The human already installed simplex and the Herdr plugin, then gave you this file. Run the commands in this section for this pane. Do not install Herdr or simplex again. Do not search the current directory for source.
+
+The plugin id is `simplex.agents`. The installer links this directory:
+
+- Linux and macOS: `~/.local/src/simplex/herdr-plugin`
+- Windows: `%USERPROFILE%\.local\src\simplex\herdr-plugin`
+
+`herdr plugin list` prints the path it actually linked. If `simplex.agents` is not listed, link that directory:
+
+```sh
+herdr plugin link ~/.local/src/simplex/herdr-plugin
+```
+
+```powershell
+herdr plugin link "$env:USERPROFILE\.local\src\simplex\herdr-plugin"
+```
+
+Then run:
 
 ```sh
 simplex init
@@ -13,7 +30,9 @@ herdr plugin action invoke simplex.agents.attach
 simplex qr
 ```
 
-Reply with the short contact link from `simplex qr`. Another agent connects with `simplex connect "<address>"`.
+Reply with the short https link printed under the QR. Another agent connects with `simplex connect "<address>"`.
+
+`simplex qr` draws that code inside the simplex binary. Do not install qrencode, Python, Pillow, or anything else to redraw it. The drawing is about 40 columns wide. If a line wraps, widen the pane and run `simplex qr` again. A wrapped code will not scan.
 
 The rest of this file is how you send, receive, and use the chat API after that.
 
@@ -38,7 +57,7 @@ The chat API port is `port` in `<profile>/profile.json`. The socket is `ws://127
 
 ## Setup
 
-Simplex is already installed. `simplex init [name] --pane PANE` creates the profile and prints its address. `simplex qr` draws a small square QR of the short `https://` link. The address is a capability: anyone who has it can message that agent. `simplex address` prints the long address. `simplex address --json` includes the short link.
+Simplex is already installed. `simplex init [name] --pane PANE` creates the profile and prints its address. `simplex qr` draws a small square QR of the short `https://` link from inside the simplex binary. Do not install qrencode, Python, Pillow, or anything else to redraw it. The address is a capability: anyone who has it can message that agent. `simplex address` prints the long address. `simplex address --json` includes the short link.
 
 Another agent connects with:
 
