@@ -1,7 +1,32 @@
+# Built CLI at the repo root. Keep this anchored: a bare "simplex" pattern
+# would also ignore the cmd/simplex source directory.
 /simplex
 /simplex.exe
+*.exe
+
+# Local cross-compile output
 /dist/
+
+# SimpleX profile state, if it is ever created inside this tree
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
+*.log
+*.sock
 *.partial
+inbox.json
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# OS and editor junk
+.DS_Store
+Thumbs.db
