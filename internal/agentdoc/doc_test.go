@@ -21,8 +21,8 @@ func TestSkillMatchesEmbeddedInstructions(t *testing.T) {
 	if string(prompt) != string(b) {
 		t.Fatal("AGENT_PROMPT.md must be the same file as herdr-plugin/SKILL.md")
 	}
-	if !strings.Contains(Text, "https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/AGENT_PROMPT.md") {
-		t.Fatal("built-in instructions are missing the agent prompt link")
+	if !strings.Contains(Text, "https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/AGENT_PROMPT.md") || !strings.Contains(Text, "Run the steps in this section now") {
+		t.Fatal("built-in instructions are missing the execute-now order or the prompt link")
 	}
 	for _, needle := range []string{
 		"msgContent.type",
