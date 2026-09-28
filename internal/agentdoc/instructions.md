@@ -167,69 +167,125 @@ A picture the app draws is `type` `image`, not `text` with a jpeg attached. `ima
 {"corrId":"1","cmd":"/_send @3 json [{\"msgContent\":{\"type\":\"image\",\"text\":\"\",\"image\":\"<preview>\"},\"fileSource\":{\"filePath\":\"C:\\\\Users\\\\me\\\\photo.jpg\"},\"mentions\":{}}]"}
 ```
 
-The stable command list is at <https://github.com/simplex-chat/simplex-chat/blob/stable/bots/api/COMMANDS.md>. Response records and the rest of the types are at <https://github.com/simplex-chat/simplex-chat/blob/stable/bots/api/TYPES.md>. The commands are:
+This is the stable WebSocket command surface from [COMMANDS.md](https://github.com/simplex-chat/simplex-chat/blob/stable/bots/api/COMMANDS.md). Brackets mark optional flags. `json(...)` is one JSON value. Field records for those JSON values are in [TYPES.md](https://github.com/simplex-chat/simplex-chat/blob/stable/bots/api/TYPES.md). `sendRef` and `chatRef` are `@<contactId>` or `#<groupId>`.
 
 ```text
-/_address <userId>
-/_delete_address <userId>
-/_show_address <userId>
-/_profile_address <userId> on|off
-/_address_settings <userId> <json>
+APICreateMyAddress              /_address <userId>
+APIDeleteMyAddress              /_delete_address <userId>
+APIShowMyAddress                /_show_address <userId>
+APISetProfileAddress            /_profile_address <userId> on|off
+APISetAddressSettings           /_address_settings <userId> <json(settings)>
 
-/_send <@contactId|#groupId> json <json array of composed messages>
-/_update item <@contactId|#groupId> <chatItemId> json <json updated message>
-/_delete item <@contactId|#groupId> <chatItemIds> broadcast|internal|internalMark|history
-/_delete member item #<groupId> <chatItemIds>
-/_reaction <@contactId|#groupId> <chatItemId> on|off <json>
+APISendMessages                 /_send <str(sendRef)>[ live=on][ ttl=<ttl>][ sign=on] json <json(composedMessages)>
+APIUpdateChatItem               /_update item <str(chatRef)> <chatItemId>[ live=on] json <json(updatedMessage)>
+APIDeleteChatItem               /_delete item <str(chatRef)> <chatItemIds[0]>[,<chatItemIds[1]>...] broadcast|internal|internalMark|history
+APIDeleteMemberChatItem         /_delete member item #<groupId> <chatItemIds[0]>[,<chatItemIds[1]>...]
+APIChatItemReaction             /_reaction <str(chatRef)> <chatItemId> on|off <json(reaction)>
 
-/freceive <fileId>
-/fcancel <fileId>
+ReceiveFile                     /freceive <fileId>[ approved_relays=on][ encrypt=on|off][ inline=on|off][ <filePath>]
+CancelFile                      /fcancel <fileId>
 
-/_group <userId> <json group profile>
-/_public group <userId> <relayIds> <json group profile>
-/_groups <userId>
-/_join #<groupId>
-/_leave #<groupId>
-/_members #<groupId>
-/_add #<groupId> <contactId> <role>
-/_accept member #<groupId> <groupMemberId> <role>
-/_member role #<groupId> <groupMemberIds> <role>
-/_block #<groupId> <groupMemberIds> blocked=on|off
-/_remove #<groupId> <groupMemberIds>
-/_group_profile #<groupId> <json group profile>
-/_get relays #<groupId>
-/_add relays #<groupId> <relayIds>
-/_relay allow #<groupId>
+APINewGroup                     /_group <userId>[ incognito=on] <json(groupProfile)>
+APINewPublicGroup               /_public group <userId>[ incognito=on] <relayIds[0]>[,<relayIds[1]>...] <json(groupProfile)>
+APIListGroups                   /_groups <userId>[ @<contactId_>][ <search>]
+APIJoinGroup                    /_join #<groupId>
+APILeaveGroup                   /_leave #<groupId>
+APIListMembers                  /_members #<groupId>
+APIAddMember                    /_add #<groupId> <contactId> relay|observer|author|member|moderator|admin|owner
+APIAcceptMember                 /_accept member #<groupId> <groupMemberId> relay|observer|author|member|moderator|admin|owner
+APIMembersRole                  /_member role #<groupId> <groupMemberIds[0]>[,<groupMemberIds[1]>...] relay|observer|author|member|moderator|admin|owner
+APIBlockMembersForAll           /_block #<groupId> <groupMemberIds[0]>[,<groupMemberIds[1]>...] blocked=on|off
+APIRemoveMembers                /_remove #<groupId> <groupMemberIds[0]>[,<groupMemberIds[1]>...][ messages=on]
+APIUpdateGroupProfile           /_group_profile #<groupId> <json(groupProfile)>
+APIGetGroupRelays               /_get relays #<groupId>
+APIAddGroupRelays               /_add relays #<groupId> <relayIds[0]>[,<relayIds[1]>...]
+APIAllowRelayGroup              /_relay allow #<groupId>
 
-/_create link #<groupId> <role>
-/_set link role #<groupId> <role>
-/_delete link #<groupId>
-/_get link #<groupId>
+APICreateGroupLink              /_create link #<groupId> relay|observer|author|member|moderator|admin|owner
+APIGroupLinkMemberRole          /_set link role #<groupId> relay|observer|author|member|moderator|admin|owner
+APIDeleteGroupLink              /_delete link #<groupId>
+APIGetGroupLink                 /_get link #<groupId>
 
-/_connect <userId>
-/_connect plan <userId> <connectTarget>
-/connect
-/_accept <contactReqId>
-/_reject <contactReqId>
-/_contacts <userId>
+APIAddContact                   /_connect <userId>[ incognito=on]
+APIConnectPlan                  /_connect plan <userId> <connectTarget>
+APIConnect                      /_connect <userId>[ <str(preparedLink_)>]
+Connect                         /connect[ <connTarget_>]
+APIAcceptContact                /_accept <contactReqId>
+APIRejectContact                /_reject <contactReqId>
+APIListContacts                 /_contacts <userId>
 
-/_get chats <userId> <pagination> <json query>
-/_delete <@contactId|#groupId> <chatDeleteMode>
-/_set custom @<contactId>
-/_set custom #<groupId>
-/_set accept member contacts <userId> on|off
-/_set prefs @<contactId> <json preferences>
+APIGetChats                     /_get chats <userId>[ pcc=on] <str(pagination)> <json(query)>
+APIDeleteChat                   /_delete <str(chatRef)> <str(chatDeleteMode)>
+APISetContactCustomData         /_set custom @<contactId>[ <json(customData)>]
+APISetGroupCustomData           /_set custom #<groupId>[ <json(customData)>]
+APISetUserAutoAcceptMemberContacts  /_set accept member contacts <userId> on|off
+APISetContactPrefs              /_set prefs @<contactId> <json(preferences)>
 
-/user
-/users
-/_user <userId>
-/_create user <json>
-/_delete user <userId> del_smp=on|off
-/_profile <userId> <json profile>
-/_start
-/_stop
+ShowActiveUser                  /user
+ListUsers                       /users
+APISetActiveUser                /_user <userId>[ <json(viewPwd)>]
+CreateActiveUser                /_create user <json(newUser)>
+APIDeleteUser                   /_delete user <userId> del_smp=on|off[ <json(viewPwd)>]
+APIUpdateProfile                /_profile <userId> <json(profile)>
+StartChat                       /_start
+APIStopChat                     /_stop
 ```
 
-Roles used by the group commands are `relay`, `observer`, `author`, `member`, `moderator`, `admin`, and `owner`. A group profile JSON needs `displayName` and `fullName`.
+Events arrive with an empty `corrId`. Their `resp.type` is one of the names in [EVENTS.md](https://github.com/simplex-chat/simplex-chat/blob/stable/bots/api/EVENTS.md):
+
+```text
+ContactConnected
+ContactUpdated
+ContactDeletedByContact
+ReceivedContactRequest
+NewMemberContactReceivedInv
+ContactSndReady
+NewChatItems
+ChatItemReaction
+ChatItemsDeleted
+ChatItemUpdated
+GroupChatItemsDeleted
+ChatItemsStatusesUpdated
+ReceivedGroupInvitation
+UserJoinedGroup
+GroupUpdated
+JoinedGroupMember
+MemberRole
+DeletedMember
+LeftMember
+DeletedMemberUser
+GroupDeleted
+ConnectedToGroupMember
+MemberAcceptedByOther
+MemberBlockedForAll
+GroupMemberUpdated
+GroupLinkDataUpdated
+GroupRelayUpdated
+RcvFileDescrReady
+RcvFileComplete
+SndFileCompleteXFTP
+RcvFileStart
+RcvFileSndCancelled
+RcvFileAccepted
+RcvFileError
+RcvFileWarning
+SndFileError
+SndFileWarning
+AcceptingContactRequest
+AcceptingBusinessRequest
+ContactConnecting
+BusinessLinkConnecting
+JoinedGroupMemberConnecting
+SentGroupInvitation
+GroupLinkConnecting
+HostConnected
+HostDisconnected
+SubscriptionStatus
+MessageError
+ChatError
+ChatErrors
+```
+
+A group profile JSON needs `displayName` and `fullName`. Member roles are `relay`, `observer`, `author`, `member`, `moderator`, `admin`, and `owner`.
 
 There is no license file in this repository. Nothing here grants one.

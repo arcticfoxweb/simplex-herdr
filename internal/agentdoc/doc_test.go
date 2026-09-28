@@ -14,7 +14,16 @@ func TestSkillMatchesEmbeddedInstructions(t *testing.T) {
 	if string(b) != Text {
 		t.Fatal("herdr-plugin/SKILL.md and embedded instructions.md differ")
 	}
-	if !strings.Contains(Text, "msgContent.type") || !strings.Contains(Text, "file row") {
-		t.Fatal("instructions are missing the picture versus file rule")
+	for _, needle := range []string{
+		"msgContent.type",
+		"file row",
+		"/_send <str(sendRef)>[ live=on][ ttl=<ttl>][ sign=on] json <json(composedMessages)>",
+		"APINewGroup",
+		"NewChatItems",
+		"RcvFileComplete",
+	} {
+		if !strings.Contains(Text, needle) {
+			t.Fatalf("instructions missing %q", needle)
+		}
 	}
 }
