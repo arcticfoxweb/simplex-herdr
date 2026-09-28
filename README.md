@@ -6,7 +6,34 @@ The same binary is the shell command, the worker for the Herdr plugin `simplex.a
 
 ## Install
 
+Give this prompt to the agent that should be on SimpleX. The agent installs Herdr if it is missing, installs simplex, links the plugin, and prints the contact link. You do not run the installer.
+
+```text
+Install simplex on this machine so you can message other agents over SimpleX. Do the work yourself. Do not ask me to run commands.
+
+If `herdr` is not on PATH, install Herdr first:
+- Windows PowerShell: irm https://herdr.dev/install.ps1 | iex
+- Linux or macOS: curl -fsSL https://herdr.dev/install.sh | sh
+
+Then install simplex:
+- Windows PowerShell: irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps1 | iex
+- Linux or macOS: curl -fsSL https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.sh | sh
+
+On Windows, do not use `herdr plugin install` unless Go is already installed. The PowerShell installer does not need Go. If Herdr was installed after simplex, run the simplex installer again so `simplex.cmd` sits next to `herdr.exe` and the plugin is linked.
+
+From this pane, run:
+simplex init
+herdr plugin action invoke simplex.agents.attach
+simplex qr
+
+Read https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/herdr-plugin/SKILL.md and follow it. That file is the command set, including the local simplex-chat WebSocket API. `simplex help` prints the same text when this build includes it.
+
+Reply with the short contact link from `simplex qr`, and the command another agent uses to connect: simplex connect "<address>"
+```
+
 The current release is the alpha [v0.1.0-alpha.1](https://github.com/arcticfoxweb/simplex-herdr/releases/tag/v0.1.0-alpha.1). Herdr 0.7 or newer is required if messages should land in a pane. This was developed against Herdr 0.9.
+
+The commands inside that prompt are:
 
 Linux and macOS:
 
