@@ -133,6 +133,44 @@ function Save-ReleaseSource($Release) {
   return $simplexSrc
 }
 
+function Find-HerdrExe {
+  $cmd = Get-Command herdr -ErrorAction SilentlyContinue
+  if ($cmd -and $cmd.Source) { return $cmd.Source }
+  $candidates = @(
+    (Join-Path $env:LOCALAPPDATA 'Programs\Herdr\bin\herdr.exe'),
+    (Join-Path $simplexHome '.herdr\packages\standalone\current\herdr.exe')
+  )
+  foreach ($candidate in $candidates) {
+    if ($candidate -and (Test-Path -LiteralPath $candidate)) { return $candidate }
+  }
+  return $null
+}
+
+function Install-SimplexShim([string]$Exe) {
+  if ($env:OS -ne 'Windows_NT') { return }
+  $dirs = @()
+  $herdr = Find-HerdrExe
+  if ($herdr) { $dirs += (Split-Path -Parent $herdr) }
+  $dirs += (Join-Path $env:LOCALAPPDATA 'Programs\Herdr\bin')
+  $dirs += (Join-Path $simplexHome '.herdr\packages\standalone\current')
+  $seen = @{}
+  $body = "@echo off`r`n`"$Exe`" %*`r`n"
+  foreach ($dir in $dirs) {
+    if (-not $dir) { continue }
+    $key = $dir.TrimEnd('\').ToLower()
+    if ($seen.ContainsKey($key)) { continue }
+    $seen[$key] = $true
+    if (-not (Test-Path -LiteralPath $dir)) { continue }
+    $dest = Join-Path $dir 'simplex.cmd'
+    try {
+      Set-Content -LiteralPath $dest -Value $body -Encoding Ascii
+      Write-Host "installed $dest"
+    } catch {
+      Write-Host "could not write $dest"
+    }
+  }
+}
+
 function Ensure-SimplexChat([string]$Exe) {
   if ($env:SIMPLEX_CHAT_BIN -and (Test-Path -LiteralPath $env:SIMPLEX_CHAT_BIN)) {
     Write-Host "using simplex-chat at $env:SIMPLEX_CHAT_BIN"
@@ -226,15 +264,25 @@ if (-not $usedRelease) {
   & $build
 }
 
+$installedExe = Join-Path (Join-Path $simplexHome '.local\bin') 'simplex.exe'
+if ($env:OS -ne 'Windows_NT') {
+  $installedExe = Join-Path (Join-Path $simplexHome '.local\bin') 'simplex'
+}
+Install-SimplexShim $installedExe
+
 if ($env:SIMPLEX_SKIP_LINK -eq '1') {
   Write-Host 'skipping Herdr plugin link'
-} elseif (Get-Command herdr -ErrorAction SilentlyContinue) {
-  $plugin = Join-Path $simplexRoot 'herdr-plugin'
-  & herdr plugin link $plugin
-  if ($LASTEXITCODE -ne 0) { Fail "herdr plugin link failed ($LASTEXITCODE)" }
-  Write-Host "linked Herdr plugin simplex.agents from $plugin"
 } else {
-  Write-Host 'herdr is not on PATH; the plugin was not linked'
+  $herdrExe = Find-HerdrExe
+  if ($herdrExe) {
+    $plugin = Join-Path $simplexRoot 'herdr-plugin'
+    & $herdrExe plugin link $plugin
+    if ($LASTEXITCODE -ne 0) { Fail "herdr plugin link failed ($LASTEXITCODE)" }
+    Write-Host "linked Herdr plugin simplex.agents from $plugin"
+  } else {
+    Write-Host 'Herdr is not installed yet, so the plugin was not linked.'
+    Write-Host 'Install Herdr, then run this installer again. It puts simplex.cmd next to herdr.exe.'
+  }
 }
 
 $bindir = Join-Path $simplexHome '.local\bin'
@@ -289,3 +337,5 @@ Remove-Item -ErrorAction SilentlyContinue Function:Get-ReleaseAsset
 Remove-Item -ErrorAction SilentlyContinue Function:Install-ReleaseBinary
 Remove-Item -ErrorAction SilentlyContinue Function:Save-ReleaseSource
 Remove-Item -ErrorAction SilentlyContinue Function:Ensure-SimplexChat
+Remove-Item -ErrorAction SilentlyContinue Function:Find-HerdrExe
+Remove-Item -ErrorAction SilentlyContinue Function:Install-SimplexShim

@@ -22,6 +22,8 @@ irm https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/install.ps
 
 The Windows one-liner downloads `simplex-windows-amd64.exe` from the latest release, checks it against `SHA256SUMS`, and does not need Go. Windows is amd64 only, because that is the official `simplex-chat` build. Set `SIMPLEX_FROM_SOURCE=1` to compile instead. Linux and macOS one-liners do the same for their release binary, and build from source if the release asset is missing.
 
+Install Herdr before this installer, or run the installer again after Herdr. Herdr's installer writes its own `PATH` entry. If Simplex was installed first, an agent pane will not see `simplex` until `simplex.cmd` is placed next to `herdr.exe`. Running the installer again does that and links the plugin.
+
 From a checkout of this tree, the install script compiles with Go:
 
 ```sh
