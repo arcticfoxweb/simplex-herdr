@@ -1,11 +1,11 @@
 ---
 name: simplex
-description: Use when sending or receiving SimpleX messages, files, or pictures with the simplex CLI or the Herdr plugin simplex.agents. Covers text, file rows versus inline pictures, groups, inbox, ack, and MCP.
+description: Use when sending or receiving SimpleX messages, files, or pictures with the simplex CLI, the Herdr plugin simplex.agents, or the local simplex-chat WebSocket API. Covers the full chat command surface, including image messages and groups.
 ---
 
 # simplex
 
-One profile is one SimpleX identity, one local daemon, and one inbox. These commands are the whole interface. `simplex` and `simplex help` print this text. `simplex plugin status` prints the daemon status and then this text.
+One profile is one SimpleX identity, one local daemon, and one inbox. The `simplex` commands below are wrappers. The daemon's `simplex-chat` process is the API. Anything the wrappers do not build, send on that API. `simplex` and `simplex help` print this text. `simplex plugin status` prints the daemon status and then this text.
 
 `--profile NAME` selects a profile. `SIMPLEX_PROFILE` does the same. `--json` prints the raw result.
 
@@ -19,6 +19,8 @@ One profile is one SimpleX identity, one local daemon, and one inbox. These comm
 | CLI | `~/.local/bin/simplex` or `%USERPROFILE%\.local\bin\simplex.exe` |
 | Official chat program | `~/.local/share/simplex/bin/simplex-chat` (`.exe` on Windows). Override with `SIMPLEX_CHAT_BIN` |
 | Received files | `<profile>/files/` |
+
+The chat API port is `port` in `<profile>/profile.json`. The socket is `ws://127.0.0.1:<port>`. `userId` in that file is the user id for commands that take one. It is usually `1`.
 
 ## Setup
 
@@ -56,16 +58,21 @@ simplex --profile OTHER connect "<address>"
 
 On Windows, `simplex-chat.exe` needs `libcrypto-3-x64.dll` beside it. The installer adds that DLL and, if the program still exits `0xc0000135`, `libssl-3-x64.dll`. Do not treat a chat binary that exits `0xc0000135` as installed.
 
-## Send text
+## CLI wrappers
 
 ```sh
 simplex send NAME "hello"
 simplex send NAME -
+simplex send-file NAME ./notes.txt
+simplex send-file NAME ./notes.txt "caption"
+simplex send "#Group" "hello"
 ```
 
-`simplex send NAME -` reads the message from stdin.
+`simplex send NAME -` reads the message from stdin. A leading `#` forces a group when a contact uses the same name.
 
-Through the plugin, actions take no extra arguments. The recipient and the text are environment variables. This pane sends text only:
+`send-file` always sends `msgContent.type` `text` plus a `fileSource`. The SimpleX app shows that as a file row named like `1.jpg`. It does not draw an inline picture. Use the chat API image message below for a picture.
+
+Through the plugin, actions take no extra arguments. The send pane is text only:
 
 ```sh
 herdr plugin pane open --plugin simplex.agents --entrypoint send \
@@ -73,34 +80,7 @@ herdr plugin pane open --plugin simplex.agents --entrypoint send \
   --env SIMPLEX_TEXT='hello'
 ```
 
-The pane closes after a successful send. `SIMPLEX_TO` is a contact name or a group name.
-
-## Files and pictures
-
-```sh
-simplex send-file NAME ./notes.txt
-simplex send-file NAME ./notes.txt "caption"
-```
-
-`send-file` always sends `msgContent.type` `text` plus a `fileSource`. The SimpleX app shows that as a file row named like `1.jpg` or `monkey.jpg`. The app draws an inline picture only when `msgContent.type` is `image` and the message includes an image preview.
-
-This program does not build an image message. `send-file` and the Herdr plugin cannot make the app show a photo. A picture that appears inline was sent through the SimpleX chat API directly. Use `send-file` when the other side should receive the file.
-
-Incoming files are accepted automatically, up to 100MB, into the profile `files` directory. The inbox line includes `file:` only when a real local path exists.
-
-There is no plugin pane for files. Use `simplex send-file`.
-
-## Groups
-
-A group you have already joined is a name:
-
-```sh
-simplex send "Agents" "hello"
-simplex send "#Agents" "hello"
-simplex send-file "#Agents" ./notes.txt
-```
-
-A leading `#` forces a group when a contact uses the same name. There is no command to create a group, invite members, or join one. Accept the invitation in SimpleX Chat, then send by the group name.
+The pane closes after a successful send. There is no plugin pane for files. Use `simplex send-file` or the API.
 
 ## Receive
 
@@ -125,7 +105,9 @@ simplex ack msg:direct:2:10
 
 `inbox` lists what is still unread. `--all` includes messages already delivered or acked. `--wait` blocks until something is unread. After you have dealt with a message, `ack` its id. Reply once.
 
-Incoming calls are rejected and are not typed into the pane. Join notices, encryption banners, and group setting events are not messages.
+Incoming files are accepted automatically, up to 100MB, into the profile `files` directory. The inbox line includes `file:` only when a real local path exists.
+
+This daemon rejects incoming calls and does not type them into the pane. Join notices, encryption banners, and group setting events are not submitted as messages.
 
 ## Herdr plugin
 
@@ -150,11 +132,104 @@ args = ["mcp", "--profile", "default"]
 
 Tools: `address`, `connect`, `contacts`, `send`, `send_file`, `inbox`, `ack`.
 
-`send_file` is the same text-plus-file message as `simplex send-file`. It does not send an image preview. Prefix a group with `#` when it shares a name with a contact.
+`send_file` is the same text-plus-file message as `simplex send-file`. It does not send an image preview. Prefix a group with `#` when it shares a name with a contact. For an image, a group join, or any command this tool list does not wrap, use the chat API.
 
-## Not available
+## Chat API
 
-- An image message the SimpleX app shows as a picture.
-- Creating a group, inviting members, or joining from the CLI.
-- Voice or video. Incoming calls are rejected.
-- A license. Nothing in this tree grants one.
+Connect a second WebSocket to `ws://127.0.0.1:<port>` from the profile. Leave the daemon running. Each command is one JSON text frame:
+
+```json
+{"corrId":"1","cmd":"/_send @3 json [...]"}
+```
+
+`corrId` is any unique string. The matching response has the same `corrId` and a `resp` object. Frames with an empty `corrId` are events. A failed command comes back as `resp.type` `chatCmdError`.
+
+`@<contactId>` is a contact. `#<groupId>` is a group. Those ids are the numbers in inbox ids `msg:direct:<contactId>:<itemId>` and `msg:group:<groupId>:<itemId>`.
+
+`/_send` takes a JSON array of composed messages. Each object has `msgContent`, optional `fileSource`, optional `quotedItemId`, and `mentions` (use `{}` when there are none). `fileSource` is `{"filePath":"/absolute/path"}`.
+
+`msgContent.type` is one of:
+
+| type | fields | what the app shows |
+| --- | --- | --- |
+| `text` | `text` | a text bubble |
+| `link` | `text`, `preview` | a link with a preview |
+| `image` | `text`, `image` | an inline picture when `image` is the preview and `fileSource` is the file |
+| `video` | `text`, `image`, `duration` | a video |
+| `voice` | `text`, `duration` | a voice message |
+| `file` | `text` | a file row |
+| `chat` | `text`, `chatLink` | a chat link |
+| `report` | `text`, `reason` | a report |
+
+A picture the app draws is `type` `image`, not `text` with a jpeg attached. `image` is the preview string. `fileSource.filePath` is the file to upload. `text` is the caption and may be empty.
+
+```json
+{"corrId":"1","cmd":"/_send @3 json [{\"msgContent\":{\"type\":\"image\",\"text\":\"\",\"image\":\"<preview>\"},\"fileSource\":{\"filePath\":\"C:\\\\Users\\\\me\\\\photo.jpg\"},\"mentions\":{}}]"}
+```
+
+The stable command list is at <https://github.com/simplex-chat/simplex-chat/blob/stable/bots/api/COMMANDS.md>. Response records and the rest of the types are at <https://github.com/simplex-chat/simplex-chat/blob/stable/bots/api/TYPES.md>. The commands are:
+
+```text
+/_address <userId>
+/_delete_address <userId>
+/_show_address <userId>
+/_profile_address <userId> on|off
+/_address_settings <userId> <json>
+
+/_send <@contactId|#groupId> json <json array of composed messages>
+/_update item <@contactId|#groupId> <chatItemId> json <json updated message>
+/_delete item <@contactId|#groupId> <chatItemIds> broadcast|internal|internalMark|history
+/_delete member item #<groupId> <chatItemIds>
+/_reaction <@contactId|#groupId> <chatItemId> on|off <json>
+
+/freceive <fileId>
+/fcancel <fileId>
+
+/_group <userId> <json group profile>
+/_public group <userId> <relayIds> <json group profile>
+/_groups <userId>
+/_join #<groupId>
+/_leave #<groupId>
+/_members #<groupId>
+/_add #<groupId> <contactId> <role>
+/_accept member #<groupId> <groupMemberId> <role>
+/_member role #<groupId> <groupMemberIds> <role>
+/_block #<groupId> <groupMemberIds> blocked=on|off
+/_remove #<groupId> <groupMemberIds>
+/_group_profile #<groupId> <json group profile>
+/_get relays #<groupId>
+/_add relays #<groupId> <relayIds>
+/_relay allow #<groupId>
+
+/_create link #<groupId> <role>
+/_set link role #<groupId> <role>
+/_delete link #<groupId>
+/_get link #<groupId>
+
+/_connect <userId>
+/_connect plan <userId> <connectTarget>
+/connect
+/_accept <contactReqId>
+/_reject <contactReqId>
+/_contacts <userId>
+
+/_get chats <userId> <pagination> <json query>
+/_delete <@contactId|#groupId> <chatDeleteMode>
+/_set custom @<contactId>
+/_set custom #<groupId>
+/_set accept member contacts <userId> on|off
+/_set prefs @<contactId> <json preferences>
+
+/user
+/users
+/_user <userId>
+/_create user <json>
+/_delete user <userId> del_smp=on|off
+/_profile <userId> <json profile>
+/_start
+/_stop
+```
+
+Roles used by the group commands are `relay`, `observer`, `author`, `member`, `moderator`, `admin`, and `owner`. A group profile JSON needs `displayName` and `fullName`.
+
+There is no license file in this repository. Nothing here grants one.
