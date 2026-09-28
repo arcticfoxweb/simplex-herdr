@@ -46,13 +46,15 @@ This release does not include `simplex-chat`. That program is SimpleX's own buil
 | macOS | amd64 | `simplex-chat-macos-x86-64` |
 | Windows | amd64 | `simplex-chat-windows-x86-64` |
 
-Herdr can install the plugin from GitHub. That build compiles the CLI and downloads `simplex-chat` if needed. Linux and macOS run `build.sh`. Windows runs `build.ps1`.
+On Windows, use the PowerShell one-liner above. `herdr plugin install` is the path for a machine that already has Go. On Windows that build runs `build.ps1`, which needs Go. Linux and macOS run `build.sh`.
 
 ```sh
 herdr plugin install arcticfoxweb/simplex-herdr/herdr-plugin --yes
 ```
 
-`herdr plugin link` does not run the build. `install.sh` and `install.ps1` do.
+`herdr plugin link` does not compile. `install.sh` and `install.ps1` install the release binary and link the plugin.
+
+The Windows `simplex-chat` program imports `libcrypto-3-x64.dll`. The installer places that DLL beside `simplex-chat.exe`, from the FireDaemon OpenSSL 3.0.22 build, and launches the program. If it still exits `0xc0000135`, the installer adds `libssl-3-x64.dll` and tries again. A second `0xc0000135` fails the install instead of leaving a chat binary that crash-loops.
 
 ## Two agents
 
@@ -162,10 +164,13 @@ Incoming files are accepted automatically, up to 100MB, into the profile `files`
 
 | Path | What |
 | --- | --- |
-| `~/.config/simplex/profiles/<name>/` | Profile, database, inbox, and files. Override the root with `SIMPLEX_HOME`. |
+| `~/.config/simplex/profiles/<name>/` | Linux and macOS profile, database, inbox, and files. |
+| `%APPDATA%\simplex\profiles\<name>\` | Windows profile. That is `C:\Users\<you>\AppData\Roaming\simplex\profiles\<name>`. |
 | `~/.local/share/simplex/bin/simplex-chat` | Official binary from `simplex install`. Override with `SIMPLEX_CHAT_BIN`. |
 | `~/.local/bin/simplex` | This CLI. On Windows, `%USERPROFILE%\.local\bin\simplex.exe`. |
 | `~/.local/src/simplex` | Checkout used by the piped installer. The Herdr plugin link points here, so leave it in place. |
+
+`SIMPLEX_HOME` overrides the profile root on every system.
 
 `simplex status` shows the daemon, the address, the unread count, and the Herdr pane. `simplex down` stops the daemon. `simplex up` runs it in the foreground.
 

@@ -64,12 +64,21 @@ func InstalledPath() string {
 }
 
 func Download(ctx context.Context, log io.Writer) (string, error) {
+	dest := InstalledPath()
+	if runtime.GOOS == "windows" {
+		if st, err := os.Stat(dest); err == nil && !st.IsDir() {
+			fmt.Fprintf(log, "found %s\n", dest)
+			if err := prepareRuntime(ctx, dest, log); err != nil {
+				return "", err
+			}
+			return dest, nil
+		}
+	}
 	asset, err := Asset()
 	if err != nil {
 		return "", err
 	}
 	url := "https://github.com/simplex-chat/simplex-chat/releases/latest/download/" + asset
-	dest := InstalledPath()
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return "", err
 	}
@@ -126,7 +135,15 @@ func Download(ctx context.Context, log io.Writer) (string, error) {
 	}
 	sum := hex.EncodeToString(hash.Sum(nil))
 	fmt.Fprintf(log, "installed %s (%d bytes)\nsha256 %s\ncompare that hash with the GitHub release notes before trusting the binary\n", dest, n, sum)
+	if err := prepareRuntime(ctx, dest, log); err != nil {
+		return "", err
+	}
 	return dest, nil
+}
+
+// dllNotFound is Windows STATUS_DLL_NOT_FOUND, as a process exit code.
+func dllNotFound(code int) bool {
+	return code == 0xC0000135 || code == -1073741515
 }
 
 func executableMagic(magic []byte) bool {

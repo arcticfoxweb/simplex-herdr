@@ -157,8 +157,9 @@ function Save-ReleaseSource($Release) {
 }
 
 function Find-HerdrExe {
-  $cmd = Get-Command herdr -ErrorAction SilentlyContinue
-  if ($cmd -and $cmd.Source) { return $cmd.Source }
+  if ($env:HERDR_BIN_PATH -and (Test-Path -LiteralPath $env:HERDR_BIN_PATH)) {
+    return $env:HERDR_BIN_PATH
+  }
   $candidates = @(
     (Join-Path $env:LOCALAPPDATA 'Programs\Herdr\bin\herdr.exe'),
     (Join-Path $simplexHome '.herdr\packages\standalone\current\herdr.exe')
@@ -166,6 +167,8 @@ function Find-HerdrExe {
   foreach ($candidate in $candidates) {
     if ($candidate -and (Test-Path -LiteralPath $candidate)) { return $candidate }
   }
+  $cmd = Get-Command herdr -ErrorAction SilentlyContinue
+  if ($cmd -and $cmd.Source) { return $cmd.Source }
   return $null
 }
 
@@ -200,14 +203,82 @@ function Ensure-SimplexChat([string]$Exe) {
     return
   }
   $share = Join-Path $simplexHome '.local\share\simplex\bin\simplex-chat.exe'
-  if ((Test-Path -LiteralPath $share) -or (Get-Command simplex-chat -ErrorAction SilentlyContinue)) {
-    Write-Host 'simplex-chat already installed; skipping download'
+  if (-not (Test-Path -LiteralPath $share)) {
+    & $Exe install
+    if ($LASTEXITCODE -ne 0) {
+      Fail "simplex install failed ($LASTEXITCODE)"
+    }
+  }
+  if (-not (Test-Path -LiteralPath $share)) {
+    Fail "simplex-chat.exe was not installed"
+  }
+  Repair-ChatRuntime $share
+}
+
+function Repair-ChatRuntime([string]$Chat) {
+  $dir = Split-Path -Parent $Chat
+  if (-not ('Simplex.Native.ErrorMode' -as [type])) {
+    Add-Type -Namespace Simplex.Native -Name ErrorMode -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern uint SetErrorMode(uint mode);
+'@
+  }
+  [Simplex.Native.ErrorMode]::SetErrorMode(0x8003) | Out-Null
+  if (-not (Test-Path -LiteralPath (Join-Path $dir 'libcrypto-3-x64.dll'))) {
+    Install-OpenSSLDll $dir 'libcrypto-3-x64.dll'
+  }
+  if (Test-ChatLoads $Chat) {
+    Write-Host 'simplex-chat starts'
     return
   }
-  & $Exe install
-  if ($LASTEXITCODE -ne 0) {
-    Fail "simplex install failed ($LASTEXITCODE)"
+  if (-not (Test-Path -LiteralPath (Join-Path $dir 'libssl-3-x64.dll'))) {
+    Install-OpenSSLDll $dir 'libssl-3-x64.dll'
   }
+  if (Test-ChatLoads $Chat) {
+    Write-Host 'simplex-chat starts'
+    return
+  }
+  Fail "simplex-chat.exe still exits 0xc0000135 after libcrypto-3-x64.dll and libssl-3-x64.dll were installed next to it"
+}
+
+function Test-ChatLoads([string]$Chat) {
+  $p = Start-Process -FilePath $Chat -ArgumentList '-h' -WorkingDirectory (Split-Path -Parent $Chat) -WindowStyle Hidden -PassThru
+  if (-not $p.WaitForExit(3000)) {
+    Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+    return $true
+  }
+  $code = $p.ExitCode
+  return -not ($code -eq -1073741515 -or $code -eq 3221225781)
+}
+
+function Install-OpenSSLDll([string]$Dir, [string]$Name) {
+  $zipUrl = 'https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.0.22.zip'
+  $want = '323fa7e2062b81fe5f4becd02e885b138f5cd2a262eea7dd30331f12f54d0573'
+  $zip = Join-Path $env:TEMP 'simplex-openssl-3.0.22.zip'
+  $unpack = Join-Path $env:TEMP 'simplex-openssl-3.0.22'
+  $fresh = $true
+  if (Test-Path -LiteralPath $zip) {
+    $have = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLower()
+    if ($have -eq $want) { $fresh = $false }
+  }
+  if ($fresh) {
+    Write-Host "downloading OpenSSL 3.0.22 for $Name"
+    Invoke-WebRequest -Headers $simplexHeaders -Uri $zipUrl -OutFile $zip -UseBasicParsing
+    $have = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLower()
+    if ($have -ne $want) {
+      Fail "openssl zip sha256 $have, want $want"
+    }
+  }
+  if (Test-Path -LiteralPath $unpack) {
+    Remove-Item -LiteralPath $unpack -Recurse -Force
+  }
+  Expand-Archive -LiteralPath $zip -DestinationPath $unpack
+  $src = Join-Path $unpack "openssl-3.0\x64\bin\$Name"
+  if (-not (Test-Path -LiteralPath $src)) {
+    Fail "openssl zip has no $Name"
+  }
+  Copy-Item -Force -LiteralPath $src -Destination (Join-Path $Dir $Name)
+  Write-Host "installed $(Join-Path $Dir $Name)"
 }
 
 # Directory of this file when PowerShell ran it as a script. Empty under iex.
@@ -265,6 +336,9 @@ if (-not $usedRelease) {
         & git -C $simplexSrc pull --ff-only
         if ($LASTEXITCODE -ne 0) { Fail "git pull failed ($LASTEXITCODE)" }
       }
+    } elseif (Test-Path -LiteralPath (Join-Path $simplexSrc 'herdr-plugin\herdr-plugin.toml')) {
+      Write-Host "using $simplexSrc"
+      $simplexRoot = $simplexSrc
     } elseif (Test-Path -LiteralPath $simplexSrc) {
       Fail "$simplexSrc exists and is not a git checkout"
     } else {
@@ -281,10 +355,18 @@ if (-not $usedRelease) {
     Write-Host "building $simplexRoot"
   }
   $build = Join-Path $simplexRoot 'herdr-plugin\build.ps1'
-  if (-not (Test-Path -LiteralPath $build)) {
-    Fail "no herdr-plugin\build.ps1 in $simplexRoot"
+  $existingExe = Join-Path (Join-Path $simplexHome '.local\bin') 'simplex.exe'
+  if ($env:OS -ne 'Windows_NT') {
+    $existingExe = Join-Path (Join-Path $simplexHome '.local\bin') 'simplex'
   }
-  & $build
+  if ((Test-Path -LiteralPath $existingExe) -and -not $fromCheckout -and $env:SIMPLEX_FROM_SOURCE -ne '1') {
+    Write-Host "using $existingExe"
+  } else {
+    if (-not (Test-Path -LiteralPath $build)) {
+      Fail "no herdr-plugin\build.ps1 in $simplexRoot"
+    }
+    & $build
+  }
 }
 
 $installedExe = Join-Path (Join-Path $simplexHome '.local\bin') 'simplex.exe'
@@ -360,5 +442,8 @@ Remove-Item -ErrorAction SilentlyContinue Function:Get-ReleaseAsset
 Remove-Item -ErrorAction SilentlyContinue Function:Install-ReleaseBinary
 Remove-Item -ErrorAction SilentlyContinue Function:Save-ReleaseSource
 Remove-Item -ErrorAction SilentlyContinue Function:Ensure-SimplexChat
+Remove-Item -ErrorAction SilentlyContinue Function:Repair-ChatRuntime
+Remove-Item -ErrorAction SilentlyContinue Function:Test-ChatLoads
+Remove-Item -ErrorAction SilentlyContinue Function:Install-OpenSSLDll
 Remove-Item -ErrorAction SilentlyContinue Function:Find-HerdrExe
 Remove-Item -ErrorAction SilentlyContinue Function:Install-SimplexShim

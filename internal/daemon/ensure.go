@@ -55,7 +55,7 @@ func WaitReady(sock string, timeout time.Duration) error {
 					return nil
 				case "error":
 					if s, _ := m["error"].(string); s != "" {
-						if strings.Contains(s, "not installed") {
+						if strings.Contains(s, "not installed") || missingChatDLL(s) {
 							return fmt.Errorf("%s", s)
 						}
 						last = s
@@ -72,4 +72,10 @@ func WaitReady(sock string, timeout time.Duration) error {
 		time.Sleep(200 * time.Millisecond)
 	}
 	return fmt.Errorf("%s", last)
+}
+
+// missingChatDLL is Windows STATUS_DLL_NOT_FOUND. Retrying will not find the DLL.
+func missingChatDLL(s string) bool {
+	low := strings.ToLower(s)
+	return strings.Contains(low, "c0000135") || strings.Contains(s, "3221225781")
 }
