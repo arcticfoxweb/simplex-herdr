@@ -187,6 +187,43 @@ else
 fi
 
 bindir="${HOME}/.local/bin"
+simplex_bin="${bindir}/simplex"
+if [ ! -x "$simplex_bin" ]; then
+  die "simplex was not installed at $simplex_bin"
+fi
+
+herdr_bin=""
+if [ -n "${HERDR_BIN_PATH:-}" ] && [ -f "$HERDR_BIN_PATH" ] && [ -x "$HERDR_BIN_PATH" ]; then
+  herdr_bin=$HERDR_BIN_PATH
+elif command -v herdr >/dev/null 2>&1; then
+  herdr_bin=$(command -v herdr)
+elif [ -x "${HOME}/.local/bin/herdr" ]; then
+  herdr_bin=${HOME}/.local/bin/herdr
+fi
+if [ -n "$herdr_bin" ]; then
+  HERDR_BIN_PATH=$herdr_bin
+  export HERDR_BIN_PATH
+fi
+
+profile=${SIMPLEX_PROFILE:-}
+if [ -z "$profile" ] && [ -r /dev/tty ]; then
+  printf 'Profile id (letters, numbers, _ or -): ' >/dev/tty
+  if IFS= read -r profile </dev/tty; then
+    profile=$(printf '%s' "$profile" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  else
+    profile=""
+  fi
+fi
+if [ -z "$profile" ]; then
+  profile=default
+fi
+
+if [ -n "${HERDR_PANE_ID:-}" ]; then
+  "$simplex_bin" init "$profile" --pane "$HERDR_PANE_ID"
+else
+  "$simplex_bin" init "$profile"
+fi
+
 cat <<EOF
 
 Installed ${bindir}/simplex

@@ -30,6 +30,9 @@ func TestSkillMatchesEmbeddedInstructions(t *testing.T) {
 		"simplex.agents",
 		"herdr plugin action invoke simplex.agents.attach",
 		"Do not install qrencode",
+		"contact.png",
+		"simplex join",
+		"rcvComplete",
 	} {
 		if !strings.Contains(Text, needle) {
 			t.Fatalf("instructions missing %q", needle)

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"simplex/internal/gateway"
 	"simplex/internal/osutil"
 	"simplex/internal/profile"
 	"simplex/internal/rpc"
@@ -15,6 +16,7 @@ import (
 
 // Ensure starts the profile daemon if it is not already running and waits until it is ready.
 func Ensure(p profile.Paths) error {
+	herdrBin := gateway.RememberHerdr()
 	if _, err := rpc.Call(p.Sock, rpc.Request{Op: "who"}, 2*time.Second); err != nil {
 		exe, err := os.Executable()
 		if err != nil {
@@ -22,6 +24,9 @@ func Ensure(p profile.Paths) error {
 		}
 		cmd := exec.Command(exe, "--profile", p.Name, "up")
 		cmd.Env = os.Environ()
+		if herdrBin != "" {
+			cmd.Env = setEnv(cmd.Env, "HERDR_BIN_PATH", herdrBin)
+		}
 		osutil.Detach(cmd)
 		devnull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
 		if err != nil {
@@ -75,6 +80,18 @@ func WaitReady(sock string, timeout time.Duration) error {
 }
 
 // missingChatDLL is Windows STATUS_DLL_NOT_FOUND. Retrying will not find the DLL.
+func setEnv(env []string, key, val string) []string {
+	prefix := key + "="
+	out := make([]string, 0, len(env)+1)
+	for _, e := range env {
+		if strings.HasPrefix(e, prefix) {
+			continue
+		}
+		out = append(out, e)
+	}
+	return append(out, prefix+val)
+}
+
 func missingChatDLL(s string) bool {
 	low := strings.ToLower(s)
 	return strings.Contains(low, "c0000135") || strings.Contains(s, "3221225781")

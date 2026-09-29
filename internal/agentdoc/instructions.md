@@ -22,7 +22,7 @@ herdr plugin link ~/.local/src/simplex/herdr-plugin
 herdr plugin link "$env:USERPROFILE\.local\src\simplex\herdr-plugin"
 ```
 
-Then run:
+The installer already created a profile and started its daemon. `simplex init` with no name uses that default profile. When `HERDR_PANE_ID` is set and `--pane` is omitted, init stores that pane. Then run:
 
 ```sh
 simplex init
@@ -30,9 +30,9 @@ herdr plugin action invoke simplex.agents.attach
 simplex qr
 ```
 
-Reply with the short https link printed under the QR. Another agent connects with `simplex connect "<address>"`.
+Reply with the short https link printed under the QR path. Another agent connects with `simplex connect "<address>"`.
 
-`simplex qr` draws that code inside the simplex binary. Do not install qrencode, Python, Pillow, or anything else to redraw it. The drawing is about 40 columns wide. If a line wraps, widen the pane and run `simplex qr` again. A wrapped code will not scan.
+`simplex qr` writes a PNG of that short link, `<profile>/contact.png`, from inside the simplex binary, and prints the path and the link. The image has a quiet zone, so it still scans after it is saved or pasted. Do not install qrencode, Python, Pillow, or anything else to redraw it.
 
 The rest of this file is how you send, receive, and use the chat API after that.
 
@@ -57,7 +57,7 @@ The chat API port is `port` in `<profile>/profile.json`. The socket is `ws://127
 
 ## Setup
 
-Simplex is already installed. `simplex init [name] --pane PANE` creates the profile and prints its address. `simplex qr` draws a small square QR of the short `https://` link from inside the simplex binary. Do not install qrencode, Python, Pillow, or anything else to redraw it. The address is a capability: anyone who has it can message that agent. `simplex address` prints the long address. `simplex address --json` includes the short link.
+Simplex is already installed. The installer created the profile. `simplex init` with no name uses that default profile, and it stores `HERDR_PANE_ID` when `--pane` is omitted. `simplex init [name] --pane PANE` creates a profile and attaches a pane. `simplex qr` writes `<profile>/contact.png`, a PNG of the short `https://` link, from inside the simplex binary. Do not install qrencode, Python, Pillow, or anything else to redraw it. The address is a capability: anyone who has it can message that agent. `simplex address` prints the long address. `simplex address --json` includes the short link.
 
 Another agent connects with:
 
@@ -75,13 +75,16 @@ On Windows, `simplex-chat.exe` needs `libcrypto-3-x64.dll` beside it. The instal
 simplex send NAME "hello"
 simplex send NAME -
 simplex send-file NAME ./notes.txt
-simplex send-file NAME ./notes.txt "caption"
+simplex send-file NAME ./photo.png "caption"
 simplex send "#Group" "hello"
+simplex groups
+simplex join "Group Name"
+simplex join 1
 ```
 
 `simplex send NAME -` reads the message from stdin. A leading `#` forces a group when a contact uses the same name.
 
-`send-file` always sends `msgContent.type` `text` plus a `fileSource`. The SimpleX app shows that as a file row named like `1.jpg`. It does not draw an inline picture. Use the chat API image message below for a picture.
+`send-file` sends a jpeg, png, gif, or webp as an image message: `msgContent.type` `image`, a small JPEG preview in `image`, and `fileSource`. The caption may be empty. The app draws that as a picture. Other files are `msgContent.type` `text` plus a `fileSource`, and the app shows those as a file row. A picture sent as text plus a file shows up as a file row named like `1.jpg`.
 
 Through the plugin, actions take no extra arguments. The send pane is text only:
 
@@ -116,7 +119,9 @@ simplex ack msg:direct:2:10
 
 `inbox` lists what is still unread. `--all` includes messages already delivered or acked. `--wait` blocks until something is unread. After you have dealt with a message, `ack` its id. Reply once.
 
-Incoming files are accepted automatically, up to 100MB, into the profile `files` directory. The inbox line includes `file:` only when a real local path exists.
+Incoming files are accepted with `approved_relays=on` into the profile `files` directory, up to 100MB. A file is typed into the pane only after `rcvComplete` and a real local path. The inbox line includes `file:` only when that path exists. If the file is already downloading, the daemon waits for `rcvComplete`.
+
+`simplex groups` lists each group's name, id, and member status, including `invited`. `simplex join "NAME"` or `simplex join 1` joins it. A group invitation is submitted as `group invite NAME. Join with: simplex join "NAME"`.
 
 This daemon rejects incoming calls and does not type them into the pane. Join notices, encryption banners, and group setting events are not submitted as messages.
 
@@ -141,9 +146,9 @@ command = "simplex"
 args = ["mcp", "--profile", "default"]
 ```
 
-Tools: `address`, `connect`, `contacts`, `send`, `send_file`, `inbox`, `ack`.
+Tools: `address`, `connect`, `contacts`, `send`, `send_file`, `groups`, `join`, `inbox`, `ack`.
 
-`send_file` is the same text-plus-file message as `simplex send-file`. It does not send an image preview. Prefix a group with `#` when it shares a name with a contact. For an image, a group join, or any command this tool list does not wrap, use the chat API.
+`send_file` is the same send as `simplex send-file`: a jpeg, png, gif, or webp is an image message with a preview, and any other file is text plus a file row. `groups` and `join` are the same as `simplex groups` and `simplex join`. Prefix a group with `#` when it shares a name with a contact. For a command this tool list does not wrap, use the chat API.
 
 ## Chat API
 

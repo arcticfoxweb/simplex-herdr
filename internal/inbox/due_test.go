@@ -18,10 +18,18 @@ func TestDueWaitsForFilePath(t *testing.T) {
 	if got := s.Due(now.Add(time.Second), 5); len(got) != 0 {
 		t.Fatalf("file without a path should wait, got %+v", got)
 	}
-	if got := s.Due(now.Add(21*time.Second), 5); len(got) != 1 {
-		t.Fatalf("wait should end, got %d", len(got))
+	if got := s.Due(now.Add(21*time.Second), 5); len(got) != 0 {
+		t.Fatalf("invitation should stay out of the pane, got %+v", got)
 	}
-	s.Add(Message{ID: "msg:direct:2:1", FilePath: "/tmp/note.txt", FileStatus: "complete"})
+	s.Add(Message{
+		ID: "msg:direct:2:2", From: "bob", Text: "early", FileID: 8,
+		FilePath: "/tmp/early.txt", FileStatus: "rcvInvitation", TS: now.Format(time.RFC3339),
+	})
+	if got := s.Due(now.Add(21*time.Second), 5); len(got) != 0 {
+		t.Fatalf("absolute path before rcvComplete should stay out, got %+v", got)
+	}
+	s.Add(Message{ID: "sys:connected:2", Direction: "system", Text: "bob connected", TS: now.Format(time.RFC3339)})
+	s.Add(Message{ID: "msg:direct:2:1", FilePath: "/tmp/note.txt", FileStatus: "rcvComplete"})
 	if got := s.Due(now.Add(21*time.Second), 5); len(got) != 1 || got[0].FilePath != "/tmp/note.txt" {
 		t.Fatalf("path update should be due again, got %+v", got)
 	}

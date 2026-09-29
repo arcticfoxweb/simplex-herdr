@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -103,7 +104,7 @@ func run(args []string) error {
 			return err
 		}
 		return cmdQR(p)
-	case "address", "connect", "contacts", "send", "send-file", "inbox", "ack", "status":
+	case "address", "connect", "contacts", "send", "send-file", "groups", "join", "inbox", "ack", "status":
 		p, err := profile.For(profileName)
 		if err != nil {
 			return err
@@ -121,12 +122,15 @@ func cmdInit(fallback string, args []string, jsonOut bool) error {
 		pane, ok, args = pullFlag(args, "--tmux")
 		_ = ok
 	}
+	if pane == "" {
+		pane = strings.TrimSpace(os.Getenv("HERDR_PANE_ID"))
+	}
 	name := fallback
 	if len(args) > 0 {
 		name = args[0]
 	}
 	if name == "" {
-		name = "default"
+		name = profile.DefaultName()
 	}
 	p, err := profile.For(name)
 	if err != nil {
@@ -169,7 +173,7 @@ func cmdInit(fallback string, args []string, jsonOut bool) error {
 	}
 	fmt.Printf("profile: %s\naddress: %s\n\n", p.Name, body.Address)
 	fmt.Printf("Other agent:\n  simplex --profile OTHER connect %q\n\n", body.Address)
-	fmt.Printf("QR of the short link:\n  simplex --profile %s qr\n\n", p.Name)
+	fmt.Printf("QR PNG of the short link:\n  simplex --profile %s qr\n\n", p.Name)
 	if pane == "" {
 		fmt.Printf("Deliver incoming messages into this agent's Herdr pane:\n  simplex --profile %s gateway PANE\n", p.Name)
 		fmt.Printf("  herdr plugin action invoke simplex.agents.attach\n\n")
@@ -319,11 +323,7 @@ func pluginAttach(profileName string) error {
 	if err := gateway.ValidTarget(pane); err != nil {
 		return err
 	}
-	name := profileName
-	if name == "" {
-		name = "default"
-	}
-	p, err := profile.For(name)
+	p, err := profile.For(profileName)
 	if err != nil {
 		return err
 	}
@@ -331,7 +331,7 @@ func pluginAttach(profileName string) error {
 		return err
 	}
 	if !profile.HasDefault() {
-		if err := profile.SetDefault(name); err != nil {
+		if err := profile.SetDefault(p.Name); err != nil {
 			return err
 		}
 	}
@@ -451,14 +451,18 @@ func cmdQR(p profile.Paths) error {
 	if link == "" {
 		return errors.New("no short link yet. Run simplex address once, then simplex qr")
 	}
-	pic, err := qrterm.Render(link)
+	png, err := qrterm.PNG(link)
 	if err != nil {
 		return err
 	}
-	if cols := qrterm.TermCols(); cols > 0 && cols < qrterm.Cols(pic) {
-		fmt.Fprintf(os.Stderr, "pane is %d columns and this QR is %d. Widen the pane and run simplex qr again. A wrapped code will not scan.\n", cols, qrterm.Cols(pic))
+	if err := os.MkdirAll(p.Dir, 0o700); err != nil {
+		return err
 	}
-	fmt.Print(pic)
+	path := filepath.Join(p.Dir, "contact.png")
+	if err := os.WriteFile(path, png, 0o600); err != nil {
+		return err
+	}
+	fmt.Println(path)
 	fmt.Println(link)
 	return nil
 }
@@ -530,6 +534,13 @@ func buildReq(args []string) (rpc.Request, func(), error) {
 			caption = strings.Join(args[3:], " ")
 		}
 		return rpc.Request{Op: "send_file", To: args[1], Path: args[2], Text: caption}, func() {}, nil
+	case "groups":
+		return rpc.Request{Op: "groups"}, func() {}, nil
+	case "join":
+		if len(args) < 2 {
+			return rpc.Request{}, nil, errors.New("join needs a group name or id")
+		}
+		return rpc.Request{Op: "join", To: strings.Join(args[1:], " ")}, func() {}, nil
 	case "ack":
 		if len(args) < 2 {
 			return rpc.Request{}, nil, errors.New("ack needs message ids")
@@ -579,7 +590,7 @@ func callOp(p profile.Paths, req rpc.Request) (rpc.Response, error) {
 	switch req.Op {
 	case "connect":
 		timeout = 90 * time.Second
-	case "send", "send_file":
+	case "send", "send_file", "join":
 		timeout = 50 * time.Second
 	}
 	if req.WaitSec > 0 {
@@ -632,6 +643,25 @@ func printHuman(v any) {
 		}
 		if gerr, _ := m["gatewayError"].(string); gerr != "" {
 			fmt.Printf("gateway: %s\n", gerr)
+		}
+		return
+	}
+	if _, ok := m["groups"]; ok {
+		list, _ := m["groups"].([]any)
+		if len(list) == 0 {
+			fmt.Println("no groups")
+			return
+		}
+		for _, raw := range list {
+			g, _ := raw.(map[string]any)
+			fmt.Printf("%s\t%s\tid=%v\n", g["name"], g["status"], num(g["id"]))
+		}
+		return
+	}
+	if joined, ok := m["joined"].(string); ok && joined != "" {
+		fmt.Printf("joined %s\n", joined)
+		if _, ok := m["groupId"]; ok {
+			fmt.Printf("id=%v\n", num(m["groupId"]))
 		}
 		return
 	}

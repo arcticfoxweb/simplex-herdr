@@ -110,6 +110,34 @@ func TestGroupSpeakerNestedFileAndSkipNotices(t *testing.T) {
 	}
 }
 
+func TestGroupInvitation(t *testing.T) {
+	ev := decode(t, `{
+	  "type": "newChatItems",
+	  "chatItems": [{
+	    "chatInfo": {"type": "direct", "contact": {"contactId": 3, "localDisplayName": "tangled"}},
+	    "chatItem": {
+	      "chatDir": {"type": "directRcv"},
+	      "meta": {"itemId": 23, "itemTs": "2026-09-27T02:00:00Z"},
+	      "content": {
+	        "type": "rcvGroupInvitation",
+	        "groupInvitation": {"groupId": 1, "localDisplayName": "Tangled Development"}
+	      }
+	    }
+	  }]
+	}`)
+	got := MessagesFromEvent(ev)
+	if len(got) != 1 {
+		t.Fatalf("got %d: %+v", len(got), got)
+	}
+	m := got[0]
+	if m.ID != "sys:invite:1" || m.Chat != "Tangled Development" {
+		t.Fatalf("invite = %+v", m)
+	}
+	if m.Text != `group invite Tangled Development. Join with: simplex join "Tangled Development"` {
+		t.Fatalf("text = %q", m.Text)
+	}
+}
+
 func TestStoreDedupAndAck(t *testing.T) {
 	dir := t.TempDir()
 	s, err := Open(dir)

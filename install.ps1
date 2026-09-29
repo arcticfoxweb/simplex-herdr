@@ -156,6 +156,17 @@ function Save-ReleaseSource($Release) {
   return $simplexSrc
 }
 
+function Read-SimplexProfileId {
+  if ($env:SIMPLEX_PROFILE) { return $env:SIMPLEX_PROFILE.Trim() }
+  $redirected = $false
+  try { $redirected = [Console]::IsInputRedirected } catch {}
+  if (-not $redirected) {
+    $entered = Read-Host 'Profile id (letters, numbers, _ or -)'
+    if ($entered) { return $entered.Trim() }
+  }
+  return 'default'
+}
+
 function Find-HerdrExe {
   if ($env:HERDR_BIN_PATH -and (Test-Path -LiteralPath $env:HERDR_BIN_PATH)) {
     return $env:HERDR_BIN_PATH
@@ -421,6 +432,13 @@ if ($haystack.ToLower().IndexOf($marker.ToLower()) -lt 0) {
 
 $installedName = 'simplex'
 if ($env:OS -eq 'Windows_NT') { $installedName = 'simplex.exe' }
+$herdrForDaemon = Find-HerdrExe
+if ($herdrForDaemon) { $env:HERDR_BIN_PATH = $herdrForDaemon }
+$simplexProfile = Read-SimplexProfileId
+$initArgs = @('init', $simplexProfile)
+if ($env:HERDR_PANE_ID) { $initArgs += @('--pane', $env:HERDR_PANE_ID) }
+& $installedExe @initArgs
+if ($LASTEXITCODE -ne 0) { Fail "simplex init failed ($LASTEXITCODE)" }
 Write-Host ""
 Write-Host "Installed $(Join-Path $bindir $installedName)"
 Write-Host ""
@@ -438,4 +456,5 @@ Remove-Item -ErrorAction SilentlyContinue Function:Repair-ChatRuntime
 Remove-Item -ErrorAction SilentlyContinue Function:Test-ChatLoads
 Remove-Item -ErrorAction SilentlyContinue Function:Install-OpenSSLDll
 Remove-Item -ErrorAction SilentlyContinue Function:Find-HerdrExe
+Remove-Item -ErrorAction SilentlyContinue Function:Read-SimplexProfileId
 Remove-Item -ErrorAction SilentlyContinue Function:Install-SimplexShim

@@ -60,7 +60,7 @@ func tools() []tool {
 		},
 		{
 			Name:        "send_file",
-			Description: "Send a local file to a contact or group as a text message with a file attached. The SimpleX app shows a file row, not an inline picture. Optional caption is the message text. The other side receives a local file path when the download finishes.",
+			Description: "Send a local file to a contact or group. A jpeg, png, gif, or webp is an image message with a preview. Anything else is a text message plus a file, which the app shows as a file row. Optional caption is the message text and may be empty for a picture. The other side receives a local file path when the download finishes.",
 			Schema: objSchema([]string{"to", "path"},
 				prop("to", "Contact or group name"),
 				prop("path", "Local file to send"),
@@ -68,6 +68,20 @@ func tools() []tool {
 			),
 			Call: func(args map[string]any) rpc.Request {
 				return rpc.Request{Op: "send_file", To: str(args, "to"), Path: str(args, "path"), Text: str(args, "caption")}
+			},
+		},
+		{
+			Name:        "groups",
+			Description: "List groups for this profile. member status includes invited, so an invitation shows up here before it is joined.",
+			Schema:      objSchema(nil),
+			Call:        func(map[string]any) rpc.Request { return rpc.Request{Op: "groups"} },
+		},
+		{
+			Name:        "join",
+			Description: "Join a group by its local name or numeric id. simplex join 1 and simplex join \"#1\" use the id.",
+			Schema:      objSchema([]string{"group"}, prop("group", "Group name or id")),
+			Call: func(args map[string]any) rpc.Request {
+				return rpc.Request{Op: "join", To: str(args, "group")}
 			},
 		},
 		{

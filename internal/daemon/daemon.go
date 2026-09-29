@@ -378,6 +378,27 @@ func (d *Daemon) onEvent(ev map[string]any) {
 				d.log.Printf("accept contact: %v", err)
 			}
 		}()
+	case "receivedGroupInvitation":
+		g := jutil.Obj(ev["groupInfo"])
+		name := jutil.Str(g, "localDisplayName")
+		if name == "" {
+			name = jutil.Str(jutil.Obj(g["groupProfile"]), "displayName")
+		}
+		id := jutil.Int(g, "groupId")
+		if name == "" || id == 0 {
+			return
+		}
+		from := jutil.Str(jutil.Obj(ev["contact"]), "localDisplayName")
+		if from == "" {
+			from = name
+		}
+		d.box.Add(inbox.Message{
+			ID:        fmt.Sprintf("sys:invite:%d", id),
+			From:      from,
+			Chat:      name,
+			Direction: "in",
+			Text:      fmt.Sprintf("group invite %s. Join with: simplex join %q", name, name),
+		})
 	case "contactConnected", "contactSndReady":
 		c := jutil.Obj(ev["contact"])
 		name := jutil.Str(c, "localDisplayName")
@@ -407,14 +428,14 @@ func (d *Daemon) onEvent(ev map[string]any) {
 			m = d.resolveFile(m)
 			d.box.Add(m)
 			if receiveFile(m) {
-				d.acceptFile(m.FileID)
+				d.acceptFile(m)
 			}
 		}
 	}
 }
 
 func (d *Daemon) resolveFile(m inbox.Message) inbox.Message {
-	if m.FilePath == "" || strings.HasPrefix(m.FilePath, "/") {
+	if m.FilePath == "" || filepath.IsAbs(m.FilePath) {
 		return m
 	}
 	cand := filepath.Join(d.paths.Files, filepath.Base(m.FilePath))
@@ -425,10 +446,19 @@ func (d *Daemon) resolveFile(m inbox.Message) inbox.Message {
 	if m.FileName == "" {
 		m.FileName = m.FilePath
 	}
-	if m.FileStatus != "complete" {
+	if !fileDone(m.FileStatus) {
 		m.FilePath = ""
 	}
 	return m
+}
+
+func fileDone(status string) bool {
+	switch status {
+	case "complete", "rcvComplete":
+		return true
+	default:
+		return false
+	}
 }
 
 func receiveFile(m inbox.Message) bool {
@@ -439,7 +469,7 @@ func receiveFile(m inbox.Message) bool {
 	case "complete", "cancelled", "rcvComplete":
 		return false
 	}
-	if strings.HasPrefix(m.FilePath, "/") {
+	if filepath.IsAbs(m.FilePath) {
 		if st, err := os.Stat(m.FilePath); err == nil && !st.IsDir() {
 			return false
 		}
@@ -461,7 +491,8 @@ func (d *Daemon) rejectCall(m inbox.Message) {
 	}()
 }
 
-func (d *Daemon) acceptFile(id int64) {
+func (d *Daemon) acceptFile(m inbox.Message) {
+	id := m.FileID
 	d.mu.Lock()
 	if d.accepted[id] {
 		d.mu.Unlock()
@@ -470,12 +501,39 @@ func (d *Daemon) acceptFile(id int64) {
 	d.accepted[id] = true
 	d.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		if _, err := d.do(ctx, fmt.Sprintf("/freceive %d", id), 20*time.Second); err != nil {
-			d.log.Printf("receive file %d: %v", id, err)
+		err := d.receiveFile(ctx, id, receiveDest(d.paths.Files, m))
+		if err == nil || fileAlreadyReceiving(err) {
+			return
 		}
+		d.log.Printf("receive file %d: %v", id, err)
 	}()
+}
+
+func receiveDest(dir string, m inbox.Message) string {
+	name := filepath.Base(m.FileName)
+	if name == "." || name == ".." || name == string(filepath.Separator) {
+		name = ""
+	}
+	if name == "" {
+		name = fmt.Sprintf("%d", m.FileID)
+	}
+	return filepath.Join(dir, name)
+}
+
+func (d *Daemon) receiveFile(ctx context.Context, id int64, dest string) error {
+	cmd := fmt.Sprintf("/freceive %d approved_relays=on %s", id, dest)
+	_, err := d.do(ctx, cmd, 20*time.Second)
+	return err
+}
+
+func fileAlreadyReceiving(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "filealreadyreceiving") || strings.Contains(s, "already receiving")
 }
 
 func (d *Daemon) gatewayLoop(ctx context.Context) {

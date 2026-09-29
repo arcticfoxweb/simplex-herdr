@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -196,7 +197,7 @@ func (s *Store) AddSeen(m Message) {
 }
 
 // Due returns unread messages that still need to be typed into the terminal.
-// A message with a file and no path yet waits up to 20s so the download can finish.
+// A file is held until the download reports rcvComplete and a local path exists.
 func (s *Store) Due(now time.Time, limit int) []Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -218,16 +219,23 @@ func (s *Store) Due(now time.Time, limit int) []Message {
 }
 
 func messageDue(m Message, now time.Time) bool {
-	if !m.Unread || m.Delivered || m.Direction == "call" || m.Direction == "notice" {
+	_ = now
+	if !m.Unread || m.Delivered || m.Direction == "call" || m.Direction == "notice" || m.Direction == "system" {
 		return false
 	}
-	if m.FileID != 0 && m.FilePath == "" {
-		ts, err := time.Parse(time.RFC3339, m.TS)
-		if err == nil && now.Sub(ts) < 20*time.Second {
-			return false
-		}
+	if m.FileID != 0 && !fileReady(m) {
+		return false
 	}
 	return true
+}
+
+func fileReady(m Message) bool {
+	switch m.FileStatus {
+	case "complete", "rcvComplete":
+		return m.FilePath != "" && (filepath.IsAbs(m.FilePath) || strings.ContainsAny(m.FilePath, `/\`))
+	default:
+		return false
+	}
 }
 
 func (s *Store) MarkDelivered(id string) bool {

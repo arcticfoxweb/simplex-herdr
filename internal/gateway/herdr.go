@@ -7,8 +7,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
+
+	"simplex/internal/profile"
 )
 
 const maxCapture = 256 * 1024
@@ -27,11 +31,78 @@ func ValidTarget(target string) error {
 	return nil
 }
 
+// RememberHerdr resolves the herdr binary and stores the absolute path where
+// a running daemon can read it. A detached daemon does not see a later PATH change.
+func RememberHerdr() string {
+	bin := resolveHerdr()
+	if bin == "" {
+		return ""
+	}
+	abs, err := filepath.Abs(bin)
+	if err == nil {
+		bin = abs
+	}
+	if err := os.MkdirAll(profile.Root(), 0o700); err != nil {
+		return bin
+	}
+	_ = os.WriteFile(herdrPathFile(), []byte(bin+"\n"), 0o600)
+	return bin
+}
+
 func herdrBin() string {
-	if p := os.Getenv("HERDR_BIN_PATH"); p != "" {
+	if p := resolveHerdr(); p != "" {
 		return p
 	}
 	return "herdr"
+}
+
+func resolveHerdr() string {
+	if p := strings.TrimSpace(os.Getenv("HERDR_BIN_PATH")); p != "" && fileExists(p) {
+		return p
+	}
+	if b, err := os.ReadFile(herdrPathFile()); err == nil {
+		if p := strings.TrimSpace(string(b)); p != "" && fileExists(p) {
+			return p
+		}
+	}
+	if p, err := exec.LookPath("herdr"); err == nil {
+		return p
+	}
+	if runtime.GOOS == "windows" {
+		if p, err := exec.LookPath("herdr.exe"); err == nil {
+			return p
+		}
+	}
+	for _, p := range herdrCandidates() {
+		if fileExists(p) {
+			return p
+		}
+	}
+	return ""
+}
+
+func herdrPathFile() string {
+	return filepath.Join(profile.Root(), "herdr.path")
+}
+
+func herdrCandidates() []string {
+	home, _ := os.UserHomeDir()
+	if runtime.GOOS == "windows" {
+		local := os.Getenv("LOCALAPPDATA")
+		return []string{
+			filepath.Join(local, "Programs", "Herdr", "bin", "herdr.exe"),
+			filepath.Join(home, ".herdr", "packages", "standalone", "current", "herdr.exe"),
+		}
+	}
+	return []string{
+		filepath.Join(home, ".local", "bin", "herdr"),
+		"/usr/local/bin/herdr",
+	}
+}
+
+func fileExists(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && !st.IsDir()
 }
 
 func (Herdr) Capture(target string) (Snap, error) {

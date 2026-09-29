@@ -63,6 +63,9 @@ func TestPumpImmediate(t *testing.T) {
 	if id != "m" || !strings.Contains(screen.text, "tangled says in Tangled Development [m]: hi") {
 		t.Fatalf("id=%q text=%q", id, screen.text)
 	}
+	if screen.n != 2 {
+		t.Fatalf("captures = %d, want one look per pump", screen.n)
+	}
 }
 
 func TestPumpSkipsDraft(t *testing.T) {

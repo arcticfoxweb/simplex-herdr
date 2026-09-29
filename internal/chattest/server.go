@@ -128,7 +128,15 @@ func reply(cmd string) map[string]any {
 		return map[string]any{
 			"type": "groupsList",
 			"groups": []any{
-				map[string]any{"groupId": 1, "localDisplayName": "Tangled Development"},
+				map[string]any{
+					"groupInfo": map[string]any{
+						"groupId":          1,
+						"localDisplayName": "Tangled Development",
+						"membership": map[string]any{
+							"memberStatus": map[string]any{"type": "member"},
+						},
+					},
+				},
 			},
 		}
 	case strings.HasPrefix(cmd, "/_contacts"):
@@ -150,6 +158,21 @@ func reply(cmd string) map[string]any {
 		return map[string]any{"type": "sentInvitation"}
 	case strings.HasPrefix(cmd, "/_accept"):
 		return map[string]any{"type": "acceptingContactRequest"}
+	case strings.HasPrefix(cmd, "/_join "):
+		return map[string]any{"type": "userJoinedGroup"}
+	case strings.HasPrefix(cmd, "/fcancel "):
+		return map[string]any{"type": "rcvFileCancelled"}
+	case strings.Contains(cmd, "/freceive 78"):
+		return map[string]any{
+			"type": "chatCmdError",
+			"chatError": map[string]any{
+				"type": "error",
+				"errorType": map[string]any{
+					"type":    "fileAlreadyReceiving",
+					"message": "already receiving",
+				},
+			},
+		}
 	case strings.HasPrefix(cmd, "/freceive"):
 		return map[string]any{"type": "rcvFileAccepted"}
 	default:

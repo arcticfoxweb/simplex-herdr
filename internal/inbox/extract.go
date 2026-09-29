@@ -69,6 +69,8 @@ func itemMessage(info, item map[string]any) (Message, bool) {
 	case "", "rcvMsgContent":
 	case "rcvCall":
 		return callMessage(info, dir, meta, itemID), true
+	case "rcvGroupInvitation":
+		return groupInviteMessage(content, meta, itemID)
 	default:
 		// Join text, feature toggles, and other setup events are not messages.
 		return Message{}, false
@@ -88,7 +90,7 @@ func itemMessage(info, item map[string]any) (Message, bool) {
 		filePath = nestedString(file["fileSource"])
 	}
 	fileStatus := statusString(file["fileStatus"])
-	if filePath != "" && !strings.Contains(filePath, "/") && fileStatus != "complete" {
+	if filePath != "" && !strings.ContainsAny(filePath, `/\`) && fileStatus != "complete" && fileStatus != "rcvComplete" {
 		if fileName == "" {
 			fileName = filePath
 		}
@@ -127,6 +129,26 @@ func itemMessage(info, item map[string]any) (Message, bool) {
 		msg.ContactID = chatID
 	}
 	return msg, true
+}
+
+func groupInviteMessage(content, meta map[string]any, itemID int64) (Message, bool) {
+	inv := jutil.Obj(content["groupInvitation"])
+	name := jutil.Str(inv, "localDisplayName")
+	if name == "" {
+		name = jutil.Str(jutil.Obj(inv["groupProfile"]), "displayName")
+	}
+	gid := jutil.Int(inv, "groupId")
+	if name == "" || gid == 0 {
+		return Message{}, false
+	}
+	return Message{
+		ID:     fmt.Sprintf("sys:invite:%d", gid),
+		From:   name,
+		Chat:   name,
+		Text:   fmt.Sprintf("group invite %s. Join with: simplex join %q", name, name),
+		ItemID: itemID,
+		TS:     jutil.Str(meta, "itemTs"),
+	}, true
 }
 
 func callMessage(info, dir, meta map[string]any, itemID int64) Message {

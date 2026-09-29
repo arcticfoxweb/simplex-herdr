@@ -29,17 +29,6 @@ func Pump(w *Watch, screen Screen, target string, quiet time.Duration, due []inb
 	if !w.Observe(snap, quiet) {
 		return "", nil
 	}
-	again, err := screen.Capture(target)
-	if err != nil {
-		return "", err
-	}
-	if again.At.IsZero() {
-		again.At = now
-	}
-	if again.InMode || again.Text != snap.Text || again.CursorX != snap.CursorX || again.CursorY != snap.CursorY {
-		w.Observe(again, quiet)
-		return "", nil
-	}
 	if err := screen.Submit(target, Format(due[0])); err != nil {
 		return "", err
 	}

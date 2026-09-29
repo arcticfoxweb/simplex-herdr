@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"simplex/internal/inbox"
 	"simplex/internal/jutil"
+	"simplex/internal/preview"
 	"simplex/internal/profile"
 	"simplex/internal/rpc"
 )
@@ -46,6 +48,10 @@ func (d *Daemon) handle(req rpc.Request) rpc.Response {
 		result, err = d.opSend(req.To, req.Text, "")
 	case "send_file":
 		result, err = d.opSend(req.To, req.Text, req.Path)
+	case "groups":
+		result, err = d.opGroups()
+	case "join":
+		result, err = d.opJoin(req.To)
 	case "inbox":
 		result, err = d.opInbox(req)
 	case "ack":
@@ -222,23 +228,32 @@ func (d *Daemon) opSend(to, text, path string) (any, error) {
 			return nil, fmt.Errorf("%s is a directory", abs)
 		}
 		filePath = abs
-		if strings.TrimSpace(text) == "" {
-			text = filepath.Base(abs)
-		}
 	}
-	if strings.TrimSpace(text) == "" {
-		return nil, fmt.Errorf("send needs message text")
-	}
+	caption := strings.TrimSpace(text)
 	ref, kind, id, err := d.lookup(to)
 	if err != nil {
 		return nil, err
 	}
 	msg := map[string]any{
-		"msgContent": map[string]any{"type": "text", "text": text},
-		"mentions":   map[string]any{},
+		"mentions": map[string]any{},
 	}
 	if filePath != "" {
-		msg["fileSource"] = map[string]any{"filePath": filePath}
+		if image, ok := preview.JPEGBase64(filePath); ok {
+			// An empty caption stays empty. The picture is the message.
+			msg["msgContent"] = map[string]any{"type": "image", "text": caption, "image": image}
+			msg["fileSource"] = map[string]any{"filePath": filePath}
+		} else {
+			if caption == "" {
+				caption = filepath.Base(filePath)
+			}
+			msg["msgContent"] = map[string]any{"type": "text", "text": caption}
+			msg["fileSource"] = map[string]any{"filePath": filePath}
+		}
+	} else {
+		if caption == "" {
+			return nil, fmt.Errorf("send needs message text")
+		}
+		msg["msgContent"] = map[string]any{"type": "text", "text": caption}
 	}
 	payload, err := json.Marshal([]any{msg})
 	if err != nil {
@@ -261,6 +276,60 @@ func (d *Daemon) opSend(to, text, path string) (any, error) {
 		out["file"] = filePath
 	}
 	return out, nil
+}
+
+func (d *Daemon) opGroups() (any, error) {
+	if err := d.ready(); err != nil {
+		return nil, err
+	}
+	uid := d.userIDNow()
+	resp, err := d.do(context.Background(), fmt.Sprintf("/_groups %d", uid), 15*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	var groups []map[string]any
+	for _, raw := range jutil.Slice(resp["groups"]) {
+		info := groupRecord(raw)
+		name := groupName(info)
+		groups = append(groups, map[string]any{
+			"id":     jutil.Int(info, "groupId"),
+			"name":   name,
+			"status": memberStatus(jutil.Obj(raw), info),
+		})
+	}
+	if groups == nil {
+		groups = []map[string]any{}
+	}
+	return map[string]any{"groups": groups}, nil
+}
+
+func (d *Daemon) opJoin(to string) (any, error) {
+	if err := d.ready(); err != nil {
+		return nil, err
+	}
+	to = strings.TrimSpace(strings.TrimPrefix(to, "#"))
+	if to == "" {
+		return nil, fmt.Errorf("join needs a group name or id")
+	}
+	var id int64
+	if n, err := strconv.ParseInt(to, 10, 64); err == nil && n > 0 {
+		id = n
+	} else {
+		var err error
+		id, err = d.groupID(to)
+		if err != nil {
+			return nil, err
+		}
+	}
+	resp, err := d.do(context.Background(), fmt.Sprintf("/_join #%d", id), 30*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"joined":  to,
+		"groupId": id,
+		"status":  jutil.Type(resp),
+	}, nil
 }
 
 func (d *Daemon) lookup(to string) (ref, kind string, id int64, err error) {
@@ -292,13 +361,9 @@ func (d *Daemon) groupID(name string) (int64, error) {
 		return 0, err
 	}
 	for _, raw := range jutil.Slice(resp["groups"]) {
-		g := jutil.Obj(raw)
-		n := jutil.Str(g, "localDisplayName")
-		if n == "" {
-			n = jutil.Str(jutil.Obj(g["groupProfile"]), "displayName")
-		}
-		if n == name {
-			id := jutil.Int(g, "groupId")
+		info := groupRecord(raw)
+		if groupName(info) == name {
+			id := jutil.Int(info, "groupId")
 			if id == 0 {
 				return 0, fmt.Errorf("group %q has no id", name)
 			}
@@ -306,6 +371,40 @@ func (d *Daemon) groupID(name string) (int64, error) {
 		}
 	}
 	return 0, fmt.Errorf("no group %q", name)
+}
+
+func groupRecord(raw any) map[string]any {
+	g := jutil.Obj(raw)
+	if nested := jutil.Obj(g["groupInfo"]); len(nested) > 0 {
+		return nested
+	}
+	return g
+}
+
+func groupName(info map[string]any) string {
+	name := jutil.Str(info, "localDisplayName")
+	if name == "" {
+		name = jutil.Str(jutil.Obj(info["groupProfile"]), "displayName")
+	}
+	return name
+}
+
+func memberStatus(outer, info map[string]any) string {
+	if s := statusValue(jutil.Obj(info["membership"])["memberStatus"]); s != "" {
+		return s
+	}
+	return statusValue(jutil.Obj(outer["membership"])["memberStatus"])
+}
+
+func statusValue(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case map[string]any:
+		return jutil.Type(t)
+	default:
+		return ""
+	}
 }
 
 func (d *Daemon) contactID(name string) (int64, error) {
