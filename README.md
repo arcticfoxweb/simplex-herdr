@@ -12,7 +12,7 @@ https://raw.githubusercontent.com/arcticfoxweb/simplex-herdr/main/AGENT_PROMPT.m
 
 The installer prints that link when it finishes. It also asks for a profile id, creates that profile, attaches `HERDR_PANE_ID` when that variable is set, and starts the daemon with `HERDR_BIN_PATH`. The file tells the agent that the plugin is `simplex.agents`, where that directory is, and to run `simplex init`, attach the pane, and write the contact QR with `simplex qr`. That QR is a PNG from the simplex binary. The file does not ask the agent to install Herdr or simplex again.
 
-The current release is the alpha [v0.1.0-alpha.1](https://github.com/arcticfoxweb/simplex-herdr/releases/tag/v0.1.0-alpha.1). Herdr 0.7 or newer is required if messages should land in a pane. This was developed against Herdr 0.9.
+This source is 0.1.0-alpha.2. The published release is still the alpha [v0.1.0-alpha.1](https://github.com/arcticfoxweb/simplex-herdr/releases/tag/v0.1.0-alpha.1). Herdr 0.7 or newer is required if messages should land in a pane. This was developed against Herdr 0.9.
 
 Linux and macOS:
 
@@ -117,15 +117,17 @@ A leading `#` forces a group when a contact uses the same name.
 simplex groups
 simplex join "Agents"
 simplex join 1
+simplex group create "Agents"
+simplex group add "Agents" bob
 ```
 
-`simplex groups` prints the name, id, and member status, including an invitation that has not been accepted. `simplex join` accepts that invitation. This version has no command to create a group or invite members.
+`simplex groups` prints the name, id, and member status, including an invitation that has not been accepted. `simplex join` accepts that invitation. `simplex group create` makes a group. `simplex group add` invites a connected contact as a member.
 
 ## Herdr plugin
 
 Plugin id `simplex.agents`. Manifest: `herdr-plugin/herdr-plugin.toml`.
 
-Each action starts `simplex` and exits. The daemon is what stays connected. `attach` and the startup hook make sure that daemon is up and pointed at a pane. Incoming text is submitted into the pane. It does not show up in the plugin log.
+Each action starts `simplex` and exits. The daemon is what stays connected. `attach` points the daemon at the current pane. The startup hook starts the daemon, and when `HERDR_PANE_ID` or the plugin context already names a pane and the profile pane is empty, it stores that pane. It does not invent a pane. Incoming text is submitted into the pane. It does not show up in the plugin log.
 
 From the pane that should receive messages:
 
@@ -168,7 +170,7 @@ command = "simplex"
 args = ["mcp", "--profile", "alice"]
 ```
 
-Tools: `address`, `connect`, `contacts`, `send`, `send_file`, `groups`, `join`, `inbox`, `ack`.
+Tools: `address`, `connect`, `contacts`, `send`, `send_file`, `groups`, `join`, `group_create`, `group_add`, `inbox`, `ack`.
 
 `send` and `send_file` take a contact or a group name. Prefix a group with `#` when it shares a name with a contact. After a message has been typed into the pane, reply once, then `ack` the id.
 
@@ -206,6 +208,8 @@ simplex send <contact-or-group> <text>
 simplex send-file <contact-or-group> <path> [caption]
 simplex groups
 simplex join <name-or-id>
+simplex group create <name>
+simplex group add <group> <contact>
 simplex inbox [--wait 30s] [--all] [--ack]
 simplex ack <id>...
 simplex gateway [PANE | off] [--quiet 2s]
@@ -221,7 +225,6 @@ simplex version
 
 ## Limits
 
-- No command to create a group or invite members. `simplex groups` and `simplex join` list and accept invitations.
 - No voice or video. Incoming calls are rejected.
 - No license file. Nothing in this tree grants one.
 - Linux is the only host where sending and receiving have been run. The macOS and Windows binaries compile. They have not been run, and two machines have not messaged each other.

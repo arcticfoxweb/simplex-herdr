@@ -13,7 +13,7 @@ import (
 	"simplex/internal/rpc"
 )
 
-const version = "0.1.0-alpha.1"
+const version = "0.1.0-alpha.2"
 
 // Caller runs one daemon operation.
 type Caller func(rpc.Request) (rpc.Response, error)
@@ -82,6 +82,25 @@ func tools() []tool {
 			Schema:      objSchema([]string{"group"}, prop("group", "Group name or id")),
 			Call: func(args map[string]any) rpc.Request {
 				return rpc.Request{Op: "join", To: str(args, "group")}
+			},
+		},
+		{
+			Name:        "group_create",
+			Description: "Create a SimpleX group with this display name. Invite a contact afterward with group_add.",
+			Schema:      objSchema([]string{"name"}, prop("name", "Group display name")),
+			Call: func(args map[string]any) rpc.Request {
+				return rpc.Request{Op: "group_create", Text: str(args, "name")}
+			},
+		},
+		{
+			Name:        "group_add",
+			Description: "Invite a connected contact into a group as a member. The group is a name or numeric id.",
+			Schema: objSchema([]string{"group", "contact"},
+				prop("group", "Group name or id"),
+				prop("contact", "Contact name"),
+			),
+			Call: func(args map[string]any) rpc.Request {
+				return rpc.Request{Op: "group_add", To: str(args, "group"), Text: str(args, "contact")}
 			},
 		},
 		{

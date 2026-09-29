@@ -17,9 +17,16 @@ type Server struct {
 	URL  string
 	http *httptest.Server
 
-	mu    sync.Mutex
-	conns []*client
-	cmds  []string
+	mu     sync.Mutex
+	conns  []*client
+	cmds   []string
+	extra  []namedGroup
+	nextID int64
+}
+
+type namedGroup struct {
+	ID   int64
+	Name string
 }
 
 type client struct {
@@ -95,13 +102,27 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		s.cmds = append(s.cmds, env.Cmd)
 		s.mu.Unlock()
-		resp := reply(env.Cmd)
+		resp := s.reply(env.Cmd)
 		body, _ := json.Marshal(map[string]any{"corrId": env.CorrID, "resp": resp})
 		c.write(body)
 	}
 }
 
-func reply(cmd string) map[string]any {
+func groupDisplayName(cmd string) string {
+	i := strings.IndexByte(cmd, '{')
+	if i < 0 {
+		return ""
+	}
+	var prof struct {
+		DisplayName string `json:"displayName"`
+	}
+	if json.Unmarshal([]byte(cmd[i:]), &prof) != nil {
+		return ""
+	}
+	return prof.DisplayName
+}
+
+func (s *Server) reply(cmd string) map[string]any {
 	switch {
 	case cmd == "/user":
 		return map[string]any{
@@ -125,20 +146,63 @@ func reply(cmd string) map[string]any {
 	case strings.HasPrefix(cmd, "/_get chats"):
 		return map[string]any{"type": "apiChats", "chats": []any{}}
 	case strings.HasPrefix(cmd, "/_groups"):
-		return map[string]any{
-			"type": "groupsList",
-			"groups": []any{
-				map[string]any{
-					"groupInfo": map[string]any{
-						"groupId":          1,
-						"localDisplayName": "Tangled Development",
-						"membership": map[string]any{
-							"memberStatus": map[string]any{"type": "member"},
-						},
+		s.mu.Lock()
+		groups := []any{
+			map[string]any{
+				"groupInfo": map[string]any{
+					"groupId":          1,
+					"localDisplayName": "Tangled Development",
+					"membership": map[string]any{
+						"memberStatus": map[string]any{"type": "member"},
 					},
 				},
 			},
 		}
+		for _, g := range s.extra {
+			groups = append(groups, map[string]any{
+				"groupInfo": map[string]any{
+					"groupId":          g.ID,
+					"localDisplayName": g.Name,
+					"membership": map[string]any{
+						"memberStatus": map[string]any{"type": "creator"},
+					},
+				},
+			})
+		}
+		s.mu.Unlock()
+		return map[string]any{"type": "groupsList", "groups": groups}
+	case strings.HasPrefix(cmd, "/_group "):
+		name := groupDisplayName(cmd)
+		if name == "" {
+			return map[string]any{
+				"type":      "chatCmdError",
+				"chatError": map[string]any{"type": "TEST", "cmd": cmd},
+			}
+		}
+		s.mu.Lock()
+		if s.nextID < 5 {
+			s.nextID = 5
+		}
+		id := s.nextID
+		s.nextID++
+		s.extra = append(s.extra, namedGroup{ID: id, Name: name})
+		s.mu.Unlock()
+		return map[string]any{
+			"type": "groupCreated",
+			"groupInfo": map[string]any{
+				"groupId":          id,
+				"localDisplayName": name,
+				"groupProfile": map[string]any{
+					"displayName": name,
+					"fullName":    "",
+				},
+				"membership": map[string]any{
+					"memberStatus": map[string]any{"type": "creator"},
+				},
+			},
+		}
+	case strings.HasPrefix(cmd, "/_add #"):
+		return map[string]any{"type": "sentGroupInvitation"}
 	case strings.HasPrefix(cmd, "/_contacts"):
 		return map[string]any{
 			"type": "contactsList",

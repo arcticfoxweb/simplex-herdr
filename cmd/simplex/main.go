@@ -26,7 +26,7 @@ import (
 	"simplex/internal/rpc"
 )
 
-const version = "0.1.0-alpha.1"
+const version = "0.1.0-alpha.2"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -104,7 +104,7 @@ func run(args []string) error {
 			return err
 		}
 		return cmdQR(p)
-	case "address", "connect", "contacts", "send", "send-file", "groups", "join", "inbox", "ack", "status":
+	case "address", "connect", "contacts", "send", "send-file", "groups", "join", "group", "inbox", "ack", "status":
 		p, err := profile.For(profileName)
 		if err != nil {
 			return err
@@ -365,6 +365,11 @@ func pluginStartup() error {
 		fmt.Println("simplex: default profile is not set up")
 		return nil
 	}
+	if pane := strings.TrimSpace(herdrPane()); gateway.ValidTarget(pane) == nil {
+		if _, err := p.AttachPane(pane); err != nil {
+			return err
+		}
+	}
 	if err := daemon.Ensure(p); err != nil {
 		return err
 	}
@@ -541,6 +546,26 @@ func buildReq(args []string) (rpc.Request, func(), error) {
 			return rpc.Request{}, nil, errors.New("join needs a group name or id")
 		}
 		return rpc.Request{Op: "join", To: strings.Join(args[1:], " ")}, func() {}, nil
+	case "group":
+		if len(args) < 2 {
+			return rpc.Request{}, nil, errors.New("group needs create or add")
+		}
+		switch args[1] {
+		case "create":
+			if len(args) < 3 {
+				return rpc.Request{}, nil, errors.New("group create needs a name")
+			}
+			return rpc.Request{Op: "group_create", Text: strings.Join(args[2:], " ")}, func() {}, nil
+		case "add":
+			if len(args) < 4 {
+				return rpc.Request{}, nil, errors.New("group add needs a group and a contact")
+			}
+			contact := args[len(args)-1]
+			group := strings.Join(args[2:len(args)-1], " ")
+			return rpc.Request{Op: "group_add", To: group, Text: contact}, func() {}, nil
+		default:
+			return rpc.Request{}, nil, fmt.Errorf("group %q is not create or add", args[1])
+		}
 	case "ack":
 		if len(args) < 2 {
 			return rpc.Request{}, nil, errors.New("ack needs message ids")
@@ -590,7 +615,7 @@ func callOp(p profile.Paths, req rpc.Request) (rpc.Response, error) {
 	switch req.Op {
 	case "connect":
 		timeout = 90 * time.Second
-	case "send", "send_file", "join":
+	case "send", "send_file", "join", "group_create", "group_add":
 		timeout = 50 * time.Second
 	}
 	if req.WaitSec > 0 {
@@ -660,6 +685,21 @@ func printHuman(v any) {
 	}
 	if joined, ok := m["joined"].(string); ok && joined != "" {
 		fmt.Printf("joined %s\n", joined)
+		if _, ok := m["groupId"]; ok {
+			fmt.Printf("id=%v\n", num(m["groupId"]))
+		}
+		return
+	}
+	if created, ok := m["created"].(string); ok && created != "" {
+		fmt.Printf("created %s\n", created)
+		if _, ok := m["groupId"]; ok {
+			fmt.Printf("id=%v\n", num(m["groupId"]))
+		}
+		return
+	}
+	if added, ok := m["added"].(string); ok && added != "" {
+		group, _ := m["group"].(string)
+		fmt.Printf("added %s to %s\n", added, group)
 		if _, ok := m["groupId"]; ok {
 			fmt.Printf("id=%v\n", num(m["groupId"]))
 		}

@@ -304,6 +304,52 @@ func TestGroupsJoinAndInvite(t *testing.T) {
 	waitInbox(t, sock, `group invite Agents. Join with: simplex join "Agents"`, "")
 }
 
+func TestGroupCreateAndAdd(t *testing.T) {
+	sock, srv, _ := startDaemon(t, 0)
+	resp, err := rpc.Call(sock, rpc.Request{Op: "group_create", Text: "Field"}, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(resp.Result), `"created":"Field"`) || !strings.Contains(string(resp.Result), `"groupId":5`) {
+		t.Fatalf("create = %s", resp.Result)
+	}
+	cmd := waitCmdContains(t, srv, "/_group ")
+	if !strings.Contains(cmd, `/_group 1 `) || !strings.Contains(cmd, `"displayName":"Field"`) || !strings.Contains(cmd, `"fullName":""`) {
+		t.Fatalf("create cmd = %s", cmd)
+	}
+	if _, err := rpc.Call(sock, rpc.Request{Op: "group_create", Text: " "}, 3*time.Second); err == nil {
+		t.Fatal("empty name was accepted")
+	}
+	resp, err = rpc.Call(sock, rpc.Request{Op: "groups"}, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(resp.Result), `"name":"Tangled Development"`) || !strings.Contains(string(resp.Result), `"name":"Field"`) {
+		t.Fatalf("groups = %s", resp.Result)
+	}
+	if _, err := rpc.Call(sock, rpc.Request{Op: "join", To: "Tangled Development"}, 3*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	waitCmd(t, srv, "/_join #1")
+	resp, err = rpc.Call(sock, rpc.Request{Op: "group_add", To: "Field", Text: "bob"}, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(resp.Result), `"added":"bob"`) || !strings.Contains(string(resp.Result), `"group":"Field"`) || !strings.Contains(string(resp.Result), `"groupId":5`) {
+		t.Fatalf("add = %s", resp.Result)
+	}
+	waitCmd(t, srv, "/_add #5 2 member")
+	if _, err := rpc.Call(sock, rpc.Request{Op: "group_add", To: "#5", Text: "bob"}, 3*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rpc.Call(sock, rpc.Request{Op: "group_add", To: "Field", Text: "nobody"}, 3*time.Second); err == nil {
+		t.Fatal("missing contact was accepted")
+	}
+	if _, err := rpc.Call(sock, rpc.Request{Op: "group_add", To: "Missing", Text: "bob"}, 3*time.Second); err == nil {
+		t.Fatal("missing group was accepted")
+	}
+}
+
 func startDaemon(t *testing.T, quiet time.Duration) (string, *chattest.Server, profile.Paths) {
 	t.Helper()
 	srv := chattest.Start()

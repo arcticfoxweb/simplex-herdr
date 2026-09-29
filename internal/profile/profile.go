@@ -115,6 +115,25 @@ func (p Paths) LoadMeta() Meta {
 	return m
 }
 
+// AttachPane stores pane when this profile has no pane yet.
+// An existing pane, including the older tmux field, is left alone.
+// wrote is false when nothing changed.
+func (p Paths) AttachPane(pane string) (bool, error) {
+	if pane == "" {
+		return false, nil
+	}
+	wrote := false
+	err := p.Update(func(m *Meta) {
+		if m.Target() != "" {
+			return
+		}
+		m.Pane = pane
+		m.Tmux = ""
+		wrote = true
+	})
+	return wrote, err
+}
+
 // Update reads profile.json, lets fn change it, and writes it back.
 // A lock keeps the daemon and the CLI from dropping each other's fields.
 func (p Paths) Update(fn func(*Meta)) error {

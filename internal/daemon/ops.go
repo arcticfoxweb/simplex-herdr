@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -52,6 +53,10 @@ func (d *Daemon) handle(req rpc.Request) rpc.Response {
 		result, err = d.opGroups()
 	case "join":
 		result, err = d.opJoin(req.To)
+	case "group_create":
+		result, err = d.opGroupCreate(req.Text)
+	case "group_add":
+		result, err = d.opGroupAdd(req.To, req.Text)
 	case "inbox":
 		result, err = d.opInbox(req)
 	case "ack":
@@ -307,29 +312,109 @@ func (d *Daemon) opJoin(to string) (any, error) {
 	if err := d.ready(); err != nil {
 		return nil, err
 	}
-	to = strings.TrimSpace(strings.TrimPrefix(to, "#"))
-	if to == "" {
-		return nil, fmt.Errorf("join needs a group name or id")
-	}
-	var id int64
-	if n, err := strconv.ParseInt(to, 10, 64); err == nil && n > 0 {
-		id = n
-	} else {
-		var err error
-		id, err = d.groupID(to)
-		if err != nil {
-			return nil, err
+	id, label, err := d.resolveGroup(to)
+	if err != nil {
+		if errors.Is(err, errNoGroupRef) {
+			return nil, fmt.Errorf("join needs a group name or id")
 		}
+		return nil, err
 	}
 	resp, err := d.do(context.Background(), fmt.Sprintf("/_join #%d", id), 30*time.Second)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]any{
-		"joined":  to,
+		"joined":  label,
 		"groupId": id,
 		"status":  jutil.Type(resp),
 	}, nil
+}
+
+func (d *Daemon) opGroupCreate(name string) (any, error) {
+	if err := d.ready(); err != nil {
+		return nil, err
+	}
+	name = strings.TrimSpace(name)
+	if name == "" || strings.ContainsAny(name, "\r\n") {
+		return nil, fmt.Errorf("group create needs a name")
+	}
+	payload, err := json.Marshal(struct {
+		DisplayName string `json:"displayName"`
+		FullName    string `json:"fullName"`
+	}{DisplayName: name, FullName: ""})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := d.do(context.Background(), fmt.Sprintf("/_group %d %s", d.userIDNow(), payload), 30*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	info := groupRecord(resp)
+	id := jutil.Int(info, "groupId")
+	if id == 0 {
+		id = jutil.Int(resp, "groupId")
+	}
+	created := groupName(info)
+	if created == "" {
+		created = name
+	}
+	if id == 0 {
+		return nil, fmt.Errorf("group %q was created but has no id", name)
+	}
+	return map[string]any{
+		"created": created,
+		"groupId": id,
+		"status":  jutil.Type(resp),
+	}, nil
+}
+
+func (d *Daemon) opGroupAdd(group, contact string) (any, error) {
+	if err := d.ready(); err != nil {
+		return nil, err
+	}
+	contact = strings.TrimSpace(contact)
+	if strings.TrimSpace(group) == "" || contact == "" {
+		return nil, fmt.Errorf("group add needs a group and a contact")
+	}
+	id, label, err := d.resolveGroup(group)
+	if err != nil {
+		if errors.Is(err, errNoGroupRef) {
+			return nil, fmt.Errorf("group add needs a group and a contact")
+		}
+		return nil, err
+	}
+	cid, err := d.contactID(contact)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := d.do(context.Background(), fmt.Sprintf("/_add #%d %d member", id, cid), 30*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"added":   contact,
+		"group":   label,
+		"contact": contact,
+		"groupId": id,
+		"status":  jutil.Type(resp),
+	}, nil
+}
+
+var errNoGroupRef = errors.New("empty group ref")
+
+func (d *Daemon) resolveGroup(to string) (int64, string, error) {
+	label := strings.TrimSpace(strings.TrimPrefix(to, "#"))
+	if label == "" {
+		return 0, "", errNoGroupRef
+	}
+	if n, err := strconv.ParseInt(label, 10, 64); err == nil && n > 0 {
+		return n, label, nil
+	}
+	id, err := d.groupID(label)
+	if err != nil {
+		return 0, "", err
+	}
+	return id, label, nil
 }
 
 func (d *Daemon) lookup(to string) (ref, kind string, id int64, err error) {

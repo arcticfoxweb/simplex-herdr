@@ -32,6 +32,8 @@ func TestSkillMatchesEmbeddedInstructions(t *testing.T) {
 		"Do not install qrencode",
 		"contact.png",
 		"simplex join",
+		"simplex group create",
+		"simplex group add",
 		"rcvComplete",
 	} {
 		if !strings.Contains(Text, needle) {

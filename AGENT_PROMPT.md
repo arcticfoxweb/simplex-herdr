@@ -80,6 +80,8 @@ simplex send "#Group" "hello"
 simplex groups
 simplex join "Group Name"
 simplex join 1
+simplex group create "Group Name"
+simplex group add "Group Name" CONTACT
 ```
 
 `simplex send NAME -` reads the message from stdin. A leading `#` forces a group when a contact uses the same name.
@@ -121,7 +123,7 @@ simplex ack msg:direct:2:10
 
 Incoming files are accepted with `approved_relays=on` into the profile `files` directory, up to 100MB. A file is typed into the pane only after `rcvComplete` and a real local path. The inbox line includes `file:` only when that path exists. If the file is already downloading, the daemon waits for `rcvComplete`.
 
-`simplex groups` lists each group's name, id, and member status, including `invited`. `simplex join "NAME"` or `simplex join 1` joins it. A group invitation is submitted as `group invite NAME. Join with: simplex join "NAME"`.
+`simplex groups` lists each group's name, id, and member status, including `invited`. `simplex join "NAME"` or `simplex join 1` joins it. A group invitation is submitted as `group invite NAME. Join with: simplex join "NAME"`. `simplex group create "NAME"` creates a group (`/_group`, APINewGroup). `simplex group add "NAME" CONTACT` invites a connected contact as a member (`/_add`, APIAddMember).
 
 This daemon rejects incoming calls and does not type them into the pane. Join notices, encryption banners, and group setting events are not submitted as messages.
 
@@ -135,7 +137,7 @@ herdr plugin action invoke simplex.agents.status
 herdr plugin action invoke simplex.agents.start
 ```
 
-`attach` points the current pane at this profile and starts the daemon. `status` prints daemon status and these instructions. `start` and the startup hook ensure the default profile daemon is up. Chat text is submitted into the pane. It does not appear in the plugin log.
+`attach` points the current pane at this profile and starts the daemon. `status` prints daemon status and these instructions. `start` and the startup hook ensure the default profile daemon is up. When `HERDR_PANE_ID` or the plugin context names a pane and this profile's pane is still empty, the startup hook stores that pane. It does not invent a pane. Chat text is submitted into the pane. It does not appear in the plugin log.
 
 ## MCP
 
@@ -146,9 +148,9 @@ command = "simplex"
 args = ["mcp", "--profile", "default"]
 ```
 
-Tools: `address`, `connect`, `contacts`, `send`, `send_file`, `groups`, `join`, `inbox`, `ack`.
+Tools: `address`, `connect`, `contacts`, `send`, `send_file`, `groups`, `join`, `group_create`, `group_add`, `inbox`, `ack`.
 
-`send_file` is the same send as `simplex send-file`: a jpeg, png, gif, or webp is an image message with a preview, and any other file is text plus a file row. `groups` and `join` are the same as `simplex groups` and `simplex join`. Prefix a group with `#` when it shares a name with a contact. For a command this tool list does not wrap, use the chat API.
+`send_file` is the same send as `simplex send-file`: a jpeg, png, gif, or webp is an image message with a preview, and any other file is text plus a file row. `groups` and `join` are the same as `simplex groups` and `simplex join`. `group_create` and `group_add` are `simplex group create` and `simplex group add`. Prefix a group with `#` when it shares a name with a contact. For a command this tool list does not wrap, use the chat API.
 
 ## Chat API
 
